@@ -9184,6 +9184,155 @@ end
 
 
 -- =====================================================================
+--  35. NEXO UI 2.6
+--  * tabs go back to the LEFT rail (vertical), sections sit under them
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	local BRAND_H = 42
+
+	local function styleTab(win, tab)
+		if not tab or not tab.Button then return end
+		local button, label, icon = tab.Button, tab.Label, tab.Icon
+		local isImage = icon ~= nil and icon:IsA("ImageLabel")
+
+		button.Size = UDim2.new(1, 0, 0, 24)
+		button.Visible = tab.UserVisible ~= false
+
+		if isImage then
+			icon.AnchorPoint = Vector2.new(0, 0.5)
+			icon.Position = UDim2.new(0, 10, 0.5, 0)
+		end
+		local inset = isImage and 26 or 12
+		if label then
+			label.Position = UDim2.fromOffset(inset, 0)
+			label.Size = UDim2.new(1, -(inset + 8), 1, 0)
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.TextSize = 11.5
+			label.Visible = true
+		end
+
+		local bar = tab.Underline
+		if bar then
+			bar.AnchorPoint = Vector2.new(0, 0.5)
+			bar.Position = UDim2.new(0, 3, 0.5, 0)
+			bar.Size = UDim2.fromOffset(2, 0)
+		end
+
+		function tab:_Paint(active, instant)
+			local t = NexoUI.Theme
+			self.Active = active and true or false
+			local dur = instant and 0 or Motion.Base
+			if bar then
+				tw(bar, dur, {
+					Size = UDim2.fromOffset(2, self.Active and 13 or 0),
+					BackgroundTransparency = self.Active and 0 or 1,
+				})
+				bar.BackgroundColor3 = t.Accent
+			end
+			if self.Ring then
+				tw(self.Ring, dur, { Transparency = self.Active and 0.45 or 1 })
+				self.Ring.Color = t.Accent
+			end
+			tw(button, dur, { BackgroundTransparency = self.Active and 0.9 or 1 })
+			if label then
+				tw(label, dur, { TextColor3 = self.Active and t.Text or t.SubText })
+				label.TextTransparency = self.Active and 0 or 0.2
+			end
+			if isImage then
+				tw(icon, dur, { ImageColor3 = self.Active and t.Accent or t.MutedText })
+			end
+			return self
+		end
+
+		tab._SetCompact = function(_, compact)
+			if label then label.Visible = not compact end
+			return tab
+		end
+		tab:_Paint(tab.Active, true)
+	end
+
+	local function mountLeftRail(win)
+		local strip = win.TabList
+		if not strip then return end
+
+		if win.TabRow then
+			win.TabRow.Visible = false
+			win.TabRow:Destroy()
+			win.TabRow = nil
+		end
+
+		strip.Name = "TabList"
+		strip.Parent = win.Sidebar
+		strip.Visible = true
+		strip.AnchorPoint = Vector2.new(0, 0)
+		strip.Position = UDim2.fromOffset(0, BRAND_H)
+		strip.Size = UDim2.new(1, 0, 0.52, -(BRAND_H + 4))
+		strip.BackgroundTransparency = 1
+		strip.ScrollingDirection = Enum.ScrollingDirection.Y
+		strip.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		strip.CanvasSize = UDim2.new()
+		strip.ScrollBarThickness = 0
+		strip.ClipsDescendants = true
+		strip.ZIndex = LAYER.Content + 3
+
+		local list = strip:FindFirstChildOfClass("UIListLayout")
+		if list then
+			list.FillDirection = Enum.FillDirection.Vertical
+			list.HorizontalAlignment = Enum.HorizontalAlignment.Left
+			list.VerticalAlignment = Enum.VerticalAlignment.Top
+			list.Padding = UDim.new(0, 2)
+		end
+		local pad = strip:FindFirstChildOfClass("UIPadding")
+		if pad then
+			pad.PaddingTop = UDim.new(0, 2)
+			pad.PaddingBottom = UDim.new(0, 4)
+			pad.PaddingLeft = UDim.new(0, 6)
+			pad.PaddingRight = UDim.new(0, 6)
+		end
+
+		if win.NavCaption then
+			win.NavCaption.Position = UDim2.new(0, 10, 0.52, 0)
+			win.NavCaption.Size = UDim2.new(1, -20, 0, 11)
+		end
+		if win.SectionNav then
+			win.SectionNav.Position = UDim2.new(0, 0, 0.52, 13)
+			win.SectionNav.Size = UDim2.new(1, 0, 0.48, -35)
+		end
+
+		for _, tab in ipairs(win.Tabs) do styleTab(win, tab) end
+	end
+
+	local previousTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousTab(self, config)
+		Util.safe(function() styleTab(self, tab) end)
+		return tab
+	end
+
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		if typeof(config) ~= "table" then config = {} end
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			mountLeftRail(win)
+			win:SetSidebarWidth(win.SidebarWidth)
+			win:_LayoutRows()
+			win:_Refresh()
+		end)
+
+		return win
+	end
+end
+
+
+-- =====================================================================
 --  36. NEXO UI 2.7
 --  * one full width top bar:  [ IMAGE ]  |  texts  |  search/min/close
 --  * brand logo + brand text removed from the sidebar
@@ -9850,6 +9999,154 @@ do
 			end)
 		end)
 		return tab
+	end
+end
+
+
+-- =====================================================================
+--  38. NEXO UI 2.9
+--  * top image slot back to the small square, using the given asset
+--  * much smaller window: 320 x 205, sidebar 88, top bar 32
+--  * sidebar resize line stops below the top bar, never crosses it
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local TOP_H = 32
+
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	-- the header slot uses the same asset unless you override it
+	if NexoUI.BrandIcon == nil or NexoUI.BrandIcon == "" then
+		NexoUI.BrandIcon = NexoUI.MiniIcon or "rbxassetid://134473690393403"
+	end
+	NexoUI.BrandIconSize = Vector2.new(24, 24)
+
+	-- ------------------------------------------------------------------
+	--  THE RESIZE LINE MUST NEVER TOUCH THE TOP BAR
+	-- ------------------------------------------------------------------
+	function Window:_FixHandle()
+		local handle = self.SidebarHandle
+		if not handle or not handle.Parent then return self end
+		local top = self.TopBarHeight or TOP_H
+		local width = self.Narrow and 56 or self.SidebarWidth
+		handle.Position = UDim2.new(0, width - 3, 0, top)
+		handle.Size = UDim2.new(0, 6, 1, -top)
+		handle.ZIndex = LAYER.Content + 6
+		for _, child in ipairs(handle:GetChildren()) do
+			if child:IsA("GuiObject") then child.ZIndex = LAYER.Content + 7 end
+		end
+		return self
+	end
+
+	local previousSetSidebarWidth = Window.SetSidebarWidth
+	function Window:SetSidebarWidth(width)
+		local result = previousSetSidebarWidth(self, width)
+		Util.safe(function() self:_FixHandle() end)
+		return result
+	end
+
+	local previousTopOffset = Window._ApplyTopOffset
+	function Window:_ApplyTopOffset(...)
+		local result = previousTopOffset(self, ...)
+		Util.safe(function() self:_FixHandle() end)
+		return result
+	end
+
+	-- ------------------------------------------------------------------
+	--  COMPACT TOP BAR
+	-- ------------------------------------------------------------------
+	local function shrinkTopBar(win)
+		local bar = win.TopBar
+		if not bar or not bar.Parent then return end
+
+		win.TopBarHeight = TOP_H
+		win.HeaderHeight = TOP_H
+		bar.Size = UDim2.new(1, 0, 0, TOP_H)
+
+		local pad = bar:FindFirstChildOfClass("UIPadding")
+		if pad then
+			pad.PaddingLeft = UDim.new(0, 8)
+			pad.PaddingRight = UDim.new(0, 7)
+		end
+
+		-- small square image slot again
+		if win.BrandIcon then
+			win.BrandIcon.Size = UDim2.fromOffset(24, 24)
+			win.BrandIcon.ScaleType = Enum.ScaleType.Fit
+		end
+		if win.BrandHint then win.BrandHint.TextSize = 7 end
+
+		local sep = bar:FindFirstChild("Sep1")
+		if sep then
+			sep.Position = UDim2.new(0, 31, 0.5, 0)
+			sep.Size = UDim2.fromOffset(1, 14)
+		end
+
+		local info = bar:FindFirstChild("BrandInfo")
+		if info then
+			info.Position = UDim2.new(0, 39, 0.5, 0)
+			info.Size = UDim2.new(1, -142, 0, 26)
+		end
+		if win.TopTitle then
+			win.TopTitle.Position = UDim2.fromOffset(0, 0)
+			win.TopTitle.Size = UDim2.new(1, 0, 0, 13)
+			win.TopTitle.TextSize = 11.5
+		end
+		if win.TopSub then
+			win.TopSub.Position = UDim2.fromOffset(0, 13)
+			win.TopSub.Size = UDim2.new(1, 0, 0, 11)
+			win.TopSub.TextSize = 8.5
+		end
+
+		-- control buttons shrink with the bar
+		local controls = bar:FindFirstChild("Controls")
+		if controls then
+			controls.Size = UDim2.fromOffset(0, 20)
+			local list = controls:FindFirstChildOfClass("UIListLayout")
+			if list then list.Padding = UDim.new(0, 4) end
+			for _, child in ipairs(controls:GetChildren()) do
+				if child:IsA("GuiButton") then
+					child.Size = UDim2.fromOffset(20, 20)
+				elseif child.Name == "Sep2" then
+					child.Size = UDim2.fromOffset(1, 14)
+				end
+			end
+			if win.SearchBox then win.SearchBox.TextSize = 10 end
+		end
+
+		local foot = bar:FindFirstChild("Foot")
+		if foot then foot.Size = UDim2.new(1, 18, 0, 13) end
+	end
+
+	-- ------------------------------------------------------------------
+	--  ASSEMBLE
+	-- ------------------------------------------------------------------
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		if typeof(config) ~= "table" then config = {} end
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			-- smaller again
+			if config.Size == nil then win.BaseSize = Vector2.new(320, 205) end
+			if config.SidebarWidth == nil then win.SidebarWidth = 88 end
+
+			shrinkTopBar(win)
+
+			if win.FooterLabel then win.FooterLabel.TextSize = 8.5 end
+			if win.NavCaption then win.NavCaption.TextSize = 8.5 end
+
+			win:SetSidebarWidth(win.SidebarWidth)
+			win:_ApplyTopOffset()
+			win:_LayoutRows()
+			win:_Refresh()
+			win:_FixHandle()
+		end)
+
+		return win
 	end
 end
 
