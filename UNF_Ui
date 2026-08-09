@@ -9650,4 +9650,208 @@ do
 end
 
 
+-- =====================================================================
+--  37. NEXO UI 2.8
+--  * brand image slot is WIDE (horizontal banner), not a square tile
+--  * mini ball: zero effects. perfect circle, red outline, image only
+--  * every corner in the window gets a smooth radius (no sharp edges)
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local MINI = 40
+
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	-- width x height of the header image slot. horizontal by default.
+	NexoUI.BrandIconSize = NexoUI.BrandIconSize or Vector2.new(96, 26)
+
+	local function resolveIconSize(value)
+		if typeof(value) == "Vector2" then return value end
+		if typeof(value) == "number" then return Vector2.new(value, 26) end
+		if typeof(value) == "table" and value.X and value.Y then
+			return Vector2.new(value.X, value.Y)
+		end
+		return NexoUI.BrandIconSize
+	end
+
+	-- ------------------------------------------------------------------
+	--  WIDE HEADER IMAGE
+	-- ------------------------------------------------------------------
+	function Window:SetBrandIconSize(value)
+		local size = resolveIconSize(value)
+		if not self.BrandIcon then return self end
+		self.BrandIcon.Size = UDim2.fromOffset(size.X, size.Y)
+
+		local sep = self.TopBar and self.TopBar:FindFirstChild("Sep1")
+		if sep then sep.Position = UDim2.new(0, size.X + 9, 0.5, 0) end
+
+		local info = self.TopBar and self.TopBar:FindFirstChild("BrandInfo")
+		if info then
+			info.Position = UDim2.new(0, size.X + 19, 0.5, 0)
+			info.Size = UDim2.new(1, -(size.X + 19 + 112), 0, 30)
+		end
+		return self
+	end
+
+	-- ------------------------------------------------------------------
+	--  MINI BALL: no effects whatsoever
+	-- ------------------------------------------------------------------
+	function Window:_SyncMini()
+		-- intentionally empty: the ball never changes on open/close
+		return self
+	end
+
+	function Window:_BuildMiniButton()
+		Util.safe(function()
+			if self.Mini and self.Mini.Parent then self.Mini:Destroy() end
+			for _, child in ipairs(self.Gui:GetChildren()) do
+				local n = child.Name
+				if n == "Mini" or n == "MiniButton" or n == "Toggle" or n == "HideButton" then
+					child:Destroy()
+				end
+			end
+		end)
+
+		local vp = Camera.ViewportSize
+		local mini = Util.new("ImageButton", {
+			Name = "Mini",
+			AutoButtonColor = false,
+			Position = UDim2.fromOffset(16, math.max(16, math.floor(vp.Y / 2) - 20)),
+			Size = UDim2.fromOffset(MINI, MINI),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Image = Util.image((self.Config and self.Config.MiniIcon) or NexoUI.MiniIcon),
+			ImageTransparency = 0,
+			ScaleType = Enum.ScaleType.Crop,
+			ClipsDescendants = true,
+			ZIndex = LAYER.Toast + 40,
+			Parent = self.Gui,
+		})
+
+		-- perfect circle, always
+		Util.new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = mini })
+		Util.new("UIAspectRatioConstraint", { AspectRatio = 1, Parent = mini })
+
+		-- red outline
+		local outline = Util.stroke(NexoUI.Theme.Accent, 0, 2)
+		outline.Parent = mini
+		self.Maid:Give(Util.onTheme(function(t)
+			if outline.Parent then outline.Color = t.Accent end
+		end))
+
+		self.Mini = mini
+		self.MiniParts = { Root = mini, Icon = mini, XBars = {} }
+
+		-- drag with a hard screen clamp, no visual feedback
+		local dragging, moved, startInput, startPos = false, false, nil, nil
+		self.Maid:Give(mini.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging, moved = true, false
+				startInput, startPos = input.Position, mini.Position
+			end
+		end))
+		self.Maid:Give(UserInputService.InputChanged:Connect(function(input)
+			if not dragging or not startInput then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement
+				and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local delta = input.Position - startInput
+			if math.abs(delta.X) + math.abs(delta.Y) > 4 then moved = true end
+			local screen = Camera.ViewportSize
+			local x = math.clamp(startPos.X.Offset + delta.X, 4, math.max(4, screen.X - MINI - 4))
+			local y = math.clamp(startPos.Y.Offset + delta.Y, 4, math.max(4, screen.Y - MINI - 4))
+			mini.Position = UDim2.fromOffset(x, y)
+		end))
+		self.Maid:Give(UserInputService.InputEnded:Connect(function(input)
+			if not dragging then return end
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = false
+				if not moved then Util.safe(function() self:Toggle() end) end
+			end
+		end))
+
+		return mini
+	end
+
+	-- ------------------------------------------------------------------
+	--  ROUND EVERY CORNER
+	-- ------------------------------------------------------------------
+	local ROUNDABLE = {
+		Frame = true, TextButton = true, ImageButton = true,
+		TextBox = true, ImageLabel = true, ScrollingFrame = true, CanvasGroup = true,
+	}
+
+	local function smoothCorners(root, minRadius)
+		minRadius = minRadius or 8
+		for _, obj in ipairs(root:GetDescendants()) do
+			if ROUNDABLE[obj.ClassName] then
+				local existing = obj:FindFirstChildOfClass("UICorner")
+				if existing then
+					if existing.CornerRadius.Scale == 0
+						and existing.CornerRadius.Offset > 0
+						and existing.CornerRadius.Offset < minRadius then
+						existing.CornerRadius = UDim.new(0, minRadius)
+					end
+				else
+					local box = obj.AbsoluteSize
+					local thin = (box.X > 0 and box.X <= 3) or (box.Y > 0 and box.Y <= 3)
+					local painted = obj.BackgroundTransparency < 0.99
+					if painted and not thin then
+						local side = math.min(box.X > 0 and box.X or 999, box.Y > 0 and box.Y or 999)
+						local radius = math.clamp(math.floor(side / 3), 4, minRadius)
+						Util.new("UICorner", { CornerRadius = UDim.new(0, radius), Parent = obj })
+					end
+				end
+			end
+		end
+	end
+
+	function Window:SmoothCorners(minRadius)
+		Util.safe(function() smoothCorners(self.Root, minRadius) end)
+		return self
+	end
+
+	-- ------------------------------------------------------------------
+	--  ASSEMBLE
+	-- ------------------------------------------------------------------
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		if typeof(config) ~= "table" then config = {} end
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			if win.BrandIcon then
+				win.BrandIcon.ScaleType = Enum.ScaleType.Fit
+				win:SetBrandIconSize(config.BrandIconSize)
+				if win.BrandHint then win.BrandHint.Text = "IMAGE ID" end
+			end
+
+			-- corners after the first frame so AbsoluteSize is real
+			task.defer(function()
+				Util.safe(function() smoothCorners(win.Root, 8) end)
+			end)
+		end)
+
+		return win
+	end
+
+	-- new tabs/sections created later also get rounded
+	local previousCreateTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousCreateTab(self, config)
+		task.defer(function()
+			Util.safe(function()
+				if tab and tab.Page then smoothCorners(tab.Page, 8) end
+				if tab and tab.Button then smoothCorners(tab.Button, 8) end
+			end)
+		end)
+		return tab
+	end
+end
+
+
 return NexoUI
