@@ -8389,4 +8389,599 @@ do
 end
 
 
+-- =====================================================================
+--  32. NEXO UI 2.3
+--  * mini ball: big image icon, no letter, no minus badge, red glow +
+--    white glossy outline
+--  * the top Main/Player row is gone - tabs now live on the header row
+--    (where the sub pills used to sit); sub tabs drop to a slim row
+--  * smooth loading screen
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local WHITE = Color3.new(1, 1, 1)
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	NexoUI.MiniIcon = "rbxassetid://134473690393403"
+
+	-- ------------------------------------------------------------------
+	--  MINI BALL
+	-- ------------------------------------------------------------------
+	local previousMini = Window._BuildMiniButton
+	function Window:_BuildMiniButton()
+		local mini = previousMini(self)
+		Util.safe(function()
+			local parts = self.MiniParts
+			if not parts or not parts.Root then return end
+
+			-- drop the letter and the little minus badge
+			if parts.Letter then
+				parts.Letter:Destroy()
+				parts.Letter = nil
+			end
+			if parts.Kill then
+				parts.Kill:Destroy()
+				parts.Kill = nil
+			end
+
+			-- big centred icon
+			local icon = Util.new("ImageLabel", {
+				Name = "Icon",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(0.74, 0.74),
+				BackgroundTransparency = 1,
+				Image = tostring(self.Config.MiniIcon or NexoUI.MiniIcon),
+				ImageColor3 = WHITE,
+				ScaleType = Enum.ScaleType.Fit,
+				ZIndex = mini.ZIndex + 4,
+				Parent = mini,
+			})
+			parts.Icon = icon
+
+			-- glossy white outline + red halo
+			for _, child in ipairs(mini:GetChildren()) do
+				if child:IsA("UIStroke") then child:Destroy() end
+			end
+			local gloss = Util.stroke(WHITE, 0.12, 1.6)
+			gloss.Parent = mini
+			parts.Gloss = gloss
+
+			local halo = Util.new("Frame", {
+				Name = "Halo",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.new(1, 8, 1, 8),
+				BackgroundTransparency = 1,
+				ZIndex = mini.ZIndex - 1,
+				Parent = mini,
+			}, { Util.corner(999) })
+			local haloStroke = Util.stroke(Color3.fromRGB(255, 46, 62), 0.55, 2)
+			haloStroke.Parent = halo
+			parts.Halo = haloStroke
+
+			-- slow shine sweep so it reads as "shiny"
+			self.Maid:Give(task.spawn(function()
+				while mini.Parent do
+					tw(haloStroke, 0.9, { Transparency = 0.28, Thickness = 2.6 })
+					task.wait(0.95)
+					if not mini.Parent then return end
+					tw(haloStroke, 0.9, { Transparency = 0.62, Thickness = 1.8 })
+					task.wait(0.95)
+				end
+			end) and function() end)
+
+			self:_SyncMini(true)
+		end)
+		return mini
+	end
+
+	local previousSync = Window._SyncMini
+	function Window:_SyncMini(instant)
+		previousSync(self, instant)
+		local parts = self.MiniParts
+		if not parts or not parts.Icon or not parts.Icon.Parent then return end
+		local dur = instant and 0 or Motion.Fast
+		tw(parts.Icon, dur, {
+			ImageTransparency = self.Visible and 0.72 or 0,
+			Size = UDim2.fromScale(self.Visible and 0.6 or 0.74, self.Visible and 0.6 or 0.74),
+		})
+		if parts.Gloss then
+			tw(parts.Gloss, dur, { Transparency = self.Visible and 0.3 or 0.12 })
+		end
+	end
+
+	-- ------------------------------------------------------------------
+	--  ROWS: header = tabs, slim row under it = sub tabs
+	-- ------------------------------------------------------------------
+	function Window:_HasSubTabs()
+		local tab = self.ActiveTab
+		if not tab or not tab.SubBar then return false end
+		for _, child in ipairs(tab.SubBar:GetChildren()) do
+			if child:IsA("GuiButton") then return true end
+		end
+		return false
+	end
+
+	function Window:_LayoutRows()
+		local top = self.HeaderHeight or 40
+		local holder = self.SubBarHolder
+		local rowHeight = 0
+		if holder and holder.Parent == self.Body then
+			local show = self:_HasSubTabs() and not self.Minimized
+			holder.Visible = show
+			rowHeight = show and (self.SubRowHeight or 26) or 0
+			holder.Position = UDim2.fromOffset(0, top)
+			holder.Size = UDim2.new(1, 0, 0, self.SubRowHeight or 26)
+		end
+		if self.Pages and not self.Minimized then
+			local offset = top + rowHeight
+			tw(self.Pages, Motion.Fast, {
+				Position = UDim2.fromOffset(0, offset),
+				Size = UDim2.new(1, 0, 1, -offset),
+			})
+		end
+		return self
+	end
+
+	local previousRefresh = Window._Refresh
+	function Window:_Refresh()
+		previousRefresh(self)
+		if self.SubBarHolder then Util.safe(function() self:_LayoutRows() end) end
+	end
+
+	local previousSelect = Window.SelectTab
+	function Window:SelectTab(tab)
+		local out = previousSelect(self, tab)
+		Util.safe(function() self:_LayoutRows() end)
+		return out
+	end
+
+	local previousSubTab = TabMethods.CreateSubTab
+	function TabMethods:CreateSubTab(config)
+		local sub = previousSubTab(self, config)
+		Util.safe(function()
+			if not self.SubBar then return end
+			for _, child in ipairs(self.SubBar:GetChildren()) do
+				if child:IsA("TextButton") then
+					child.Size = UDim2.fromOffset(child.Size.X.Offset, 22)
+					local corner = child:FindFirstChildOfClass("UICorner")
+					if corner then corner.CornerRadius = UDim.new(0, 8) end
+					local pad = child:FindFirstChildOfClass("UIPadding")
+					if pad then
+						pad.PaddingLeft = UDim.new(0, 10)
+						pad.PaddingRight = UDim.new(0, 10)
+					end
+				end
+			end
+			if self.Window then self.Window:_LayoutRows() end
+		end)
+		return sub
+	end
+
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			-- 1. delete the separate top bar, keep the tab strip
+			local strip = win.TabList
+			if win.TopBar then
+				if strip then strip.Parent = win.Header end
+				win.TopBar:Destroy()
+				win.TopBar = nil
+			end
+			win.TopBarHeight = 0
+
+			-- 2. sub tab pills move to their own slim row inside the body
+			win.SubRowHeight = 26
+			local holder = win.SubBarHolder
+			if holder then
+				holder.Parent = win.Body
+				holder.Position = UDim2.fromOffset(win.HeaderHeight or 40, 0)
+				holder.Size = UDim2.new(1, 0, 0, win.SubRowHeight)
+				holder.ZIndex = LAYER.Header
+				Util.pad(0, 12, 0, 12).Parent = holder
+				holder.Visible = false
+			end
+
+			-- 3. tabs take over the header row the pills used to occupy
+			if strip then
+				strip.Name = "TabStrip"
+				strip.Parent = win.Header
+				strip.AnchorPoint = Vector2.new(0, 0.5)
+				strip.Position = UDim2.new(0, 0, 0.5, 0)
+				strip.Size = UDim2.new(1, -104, 1, 0)
+				strip.BackgroundTransparency = 1
+				strip.ScrollingDirection = Enum.ScrollingDirection.X
+				strip.AutomaticCanvasSize = Enum.AutomaticSize.X
+				strip.ScrollBarThickness = 0
+				strip.ClipsDescendants = true
+				strip.ZIndex = LAYER.Header + 2
+				local list = strip:FindFirstChildOfClass("UIListLayout")
+				if list then
+					list.FillDirection = Enum.FillDirection.Horizontal
+					list.VerticalAlignment = Enum.VerticalAlignment.Center
+					list.Padding = UDim.new(0, 2)
+				end
+				local pad = strip:FindFirstChildOfClass("UIPadding")
+				if pad then
+					pad.PaddingTop = UDim.new(0, 0)
+					pad.PaddingBottom = UDim.new(0, 0)
+					pad.PaddingLeft = UDim.new(0, 2)
+					pad.PaddingRight = UDim.new(0, 6)
+				end
+				for _, tab in ipairs(win.Tabs) do
+					if tab.Button then
+						tab.Button.Size = UDim2.fromOffset(tab.Button.Size.X.Offset, (win.HeaderHeight or 40) - 12)
+					end
+				end
+			end
+
+			win:_ApplyLayoutMode()
+			win:_LayoutRows()
+			win:_Refresh()
+		end)
+
+		return win
+	end
+
+	-- new tabs must match the header row height too
+	local previousTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousTab(self, config)
+		Util.safe(function()
+			if tab and tab.Button and self.TabList and self.TabList.Parent == self.Header then
+				tab.Button.Size = UDim2.fromOffset(tab.Button.Size.X.Offset, (self.HeaderHeight or 40) - 12)
+				tab:_Paint(tab.Active, true)
+			end
+		end)
+		return tab
+	end
+
+	-- ------------------------------------------------------------------
+	--  LOADING SCREEN: soft entrance, eased bar, clean fade out
+	-- ------------------------------------------------------------------
+	local previousLoading = NexoUI.CreateLoadingScreen
+	function NexoUI:CreateLoadingScreen(config)
+		local screen = previousLoading(self, config)
+		if not screen or not screen.Panel then return screen end
+
+		Util.safe(function()
+			local panel = screen.Panel
+			local gui = screen.Gui
+
+			-- find the progress bar built by the core
+			local track, fill, percent
+			for _, child in ipairs(panel:GetChildren()) do
+				if child:IsA("Frame") and child.Size.Y.Offset == 8 then
+					track = child
+					fill = child:FindFirstChildWhichIsA("Frame")
+				elseif child:IsA("TextLabel") and child.Text:match("%%$") then
+					percent = child
+				end
+			end
+			if track then
+				track.Size = UDim2.new(1, 0, 0, 5)
+				track.BackgroundTransparency = 0.45
+			end
+
+			-- smooth entrance instead of a hard pop
+			local scale = panel:FindFirstChildOfClass("UIScale")
+				or Util.new("UIScale", { Parent = panel })
+			scale.Scale = 0.92
+			tw(scale, Motion.Slow, { Scale = 1 }, Enum.EasingStyle.Back)
+			panel.BackgroundTransparency = 1
+			tw(panel, Motion.Slow, { BackgroundTransparency = 0.1 })
+
+			-- travelling shine on the bar
+			if fill then
+				local shine = Util.new("Frame", {
+					Name = "Shine",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0, 0.5),
+					Size = UDim2.new(0, 26, 1, 0),
+					BackgroundColor3 = WHITE,
+					BackgroundTransparency = 0.7,
+					BorderSizePixel = 0,
+					ZIndex = (fill.ZIndex or 5) + 1,
+					Parent = fill,
+				}, { Util.corner(999) })
+				Util.gradient(Util.cseq(
+					{ 0, WHITE }, { 0.5, WHITE }, { 1, WHITE }
+				), 0, NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(0.5, 0.45),
+					NumberSequenceKeypoint.new(1, 1),
+				})).Parent = shine
+				task.spawn(function()
+					while shine.Parent and gui.Parent do
+						shine.Position = UDim2.fromScale(0, 0.5)
+						Util.tween(shine, 1.1, { Position = UDim2.fromScale(1, 0.5) }, Enum.EasingStyle.Sine)
+						task.wait(1.35)
+					end
+				end)
+			end
+
+			-- eased progress with a counting percentage
+			local shown = 0
+			function screen:SetProgress(alpha, text)
+				alpha = math.clamp(tonumber(alpha) or 0, 0, 1)
+				self.Progress = alpha
+				if fill then
+					Util.tween(fill, 0.45, { Size = UDim2.fromScale(alpha, 1) },
+						Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+				end
+				if text then self:SetStatus(text) end
+				if percent then
+					local from, to = shown, math.floor(alpha * 100)
+					shown = to
+					task.spawn(function()
+						local steps = math.max(math.abs(to - from), 1)
+						for i = 1, steps do
+							if not percent.Parent then return end
+							percent.Text = tostring(math.floor(from + (to - from) * (i / steps))) .. "%"
+							task.wait(0.45 / steps)
+						end
+					end)
+				end
+				return self
+			end
+
+			function screen:Finish(callback)
+				if self._finished then return self end
+				self._finished = true
+				self:SetProgress(1, config and config.FinishText or "Ready")
+				task.delay(0.5, function()
+					tw(scale, Motion.Slow, { Scale = 1.04 })
+					tw(panel, Motion.Slow, { BackgroundTransparency = 1 })
+					for _, d in ipairs(panel:GetDescendants()) do
+						if d:IsA("TextLabel") then
+							tw(d, Motion.Slow, { TextTransparency = 1 })
+						elseif d:IsA("ImageLabel") then
+							tw(d, Motion.Slow, { ImageTransparency = 1 })
+						elseif d:IsA("Frame") then
+							tw(d, Motion.Slow, { BackgroundTransparency = 1 })
+						elseif d:IsA("UIStroke") then
+							tw(d, Motion.Slow, { Transparency = 1 })
+						end
+					end
+					task.delay(Motion.Slow + 0.1, function()
+						pcall(function() gui:Destroy() end)
+						Util.safe(callback)
+						if config then Util.safe(config.OnFinish) end
+					end)
+				end)
+				return self
+			end
+		end)
+
+		return screen
+	end
+end
+
+
+-- =====================================================================
+--  33. NEXO UI 2.4
+--  * drag the sidebar border left / right to resize the section rail
+--  * even smaller default window
+--  * the window may be dragged up to 90% off screen, the mini ball
+--    always stays fully on screen
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	NexoUI.OffscreenAllowance = 0.9 -- 90% of the window may leave the screen
+
+	-- ------------------------------------------------------------------
+	--  FREE DRAGGING (90% off screen allowed)
+	-- ------------------------------------------------------------------
+	local function clampFree(win, position)
+		local vp = Camera.ViewportSize
+		local size = win.Root.AbsoluteSize
+		local keepX = math.max(size.X * (1 - NexoUI.OffscreenAllowance), 24)
+		local keepY = math.max(size.Y * (1 - NexoUI.OffscreenAllowance), 24)
+		return UDim2.fromOffset(
+			math.clamp(position.X.Offset, -(size.X - keepX), vp.X - keepX),
+			math.clamp(position.Y.Offset, -(size.Y - keepY), vp.Y - keepY)
+		)
+	end
+
+	function Window:_BindDrag(target)
+		if not target then return self end
+		local window = self
+		target.Active = true
+		local dragging, startInput, startPos = false, nil, nil
+
+		self.Maid:Give(target.InputBegan:Connect(function(input)
+			if window.DragEnabled == false then return end
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				startInput = input.Position
+				startPos = window.Root.Position
+			end
+		end))
+		self.Maid:Give(UserInputService.InputChanged:Connect(function(input)
+			if not dragging or not window.Root or not window.Root.Parent then return end
+			if input.UserInputType == Enum.UserInputType.MouseMovement
+				or input.UserInputType == Enum.UserInputType.Touch then
+				local delta = input.Position - startInput
+				local wanted = UDim2.fromOffset(
+					startPos.X.Offset + delta.X,
+					startPos.Y.Offset + delta.Y
+				)
+				window._DesiredPos = clampFree(window, wanted)
+				window.Root.Position = window._DesiredPos
+			end
+		end))
+		self.Maid:Give(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = false
+			end
+		end))
+		return self
+	end
+
+	local previousRefresh = Window._Refresh
+	function Window:_Refresh()
+		previousRefresh(self)
+		-- the core re-clamps the window to the screen; restore the position
+		-- the user dragged it to (up to 90% outside).
+		if self._DesiredPos and self.Root and self.Root.Parent then
+			self.Root.Position = clampFree(self, self._DesiredPos)
+		end
+	end
+
+	-- ------------------------------------------------------------------
+	--  SIDEBAR RESIZE HANDLE
+	-- ------------------------------------------------------------------
+	function Window:SetSidebarWidth(width)
+		self.SidebarWidth = math.clamp(math.floor(tonumber(width) or 120), 78, 240)
+		self:_ApplyLayoutMode()
+		if self.SidebarHandle then
+			self.SidebarHandle.Position = UDim2.new(0, self.SidebarWidth - 3, 0, 0)
+		end
+		return self
+	end
+
+	local function buildSidebarHandle(win)
+		local handle = Util.new("TextButton", {
+			Name = "SidebarHandle",
+			Text = "",
+			AutoButtonColor = false,
+			Active = true,
+			Position = UDim2.new(0, (win.SidebarWidth or 120) - 3, 0, 0),
+			Size = UDim2.new(0, 6, 1, 0),
+			BackgroundTransparency = 1,
+			ZIndex = LAYER.Header + 6,
+			Parent = win.Main,
+		})
+		local line = Util.new("Frame", {
+			Name = "Line",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(0, 1, 1, -18),
+			BackgroundColor3 = NexoUI.Theme.Border,
+			BackgroundTransparency = 0.82,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 7,
+			Parent = handle,
+		}, { Util.corner(999) })
+		local grip = Util.new("Frame", {
+			Name = "Grip",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(2, 18),
+			BackgroundColor3 = NexoUI.Theme.Accent,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 8,
+			Parent = handle,
+		}, { Util.corner(999) })
+
+		win.SidebarHandle = handle
+		local dragging, startX, startWidth = false, 0, win.SidebarWidth
+
+		win.Maid:Give(handle.MouseEnter:Connect(function()
+			tw(line, Motion.Fast, { BackgroundTransparency = 0.45 })
+			tw(grip, Motion.Fast, { BackgroundTransparency = 0.1, Size = UDim2.fromOffset(2, 26) })
+		end))
+		win.Maid:Give(handle.MouseLeave:Connect(function()
+			if dragging then return end
+			tw(line, Motion.Fast, { BackgroundTransparency = 0.82 })
+			tw(grip, Motion.Fast, { BackgroundTransparency = 1, Size = UDim2.fromOffset(2, 18) })
+		end))
+		win.Maid:Give(handle.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				startX = input.Position.X
+				startWidth = win.SidebarWidth
+				tw(grip, Motion.Fast, { BackgroundTransparency = 0 })
+			end
+		end))
+		win.Maid:Give(UserInputService.InputChanged:Connect(function(input)
+			if not dragging or not handle.Parent then return end
+			if input.UserInputType == Enum.UserInputType.MouseMovement
+				or input.UserInputType == Enum.UserInputType.Touch then
+				local scale = win.Scale and win.Scale.Scale or 1
+				local delta = (input.Position.X - startX) / math.max(scale, 0.05)
+				win.Narrow = false
+				win:SetSidebarWidth(startWidth + delta)
+			end
+		end))
+		win.Maid:Give(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				if dragging then
+					dragging = false
+					tw(line, Motion.Fast, { BackgroundTransparency = 0.82 })
+					tw(grip, Motion.Fast, { BackgroundTransparency = 1, Size = UDim2.fromOffset(2, 18) })
+				end
+			end
+		end))
+		win.Maid:Give(Util.onTheme(function(t)
+			if not handle.Parent then return end
+			line.BackgroundColor3 = t.Border
+			grip.BackgroundColor3 = t.Accent
+		end))
+		return handle
+	end
+
+	-- keep the handle glued to the sidebar edge
+	local previousLayout = Window._ApplyLayoutMode
+	function Window:_ApplyLayoutMode()
+		previousLayout(self)
+		if self.SidebarHandle and self.SidebarHandle.Parent then
+			local width = self.Narrow and 56 or self.SidebarWidth
+			self.SidebarHandle.Position = UDim2.new(0, width - 3, 0, 0)
+		end
+	end
+
+	-- ------------------------------------------------------------------
+	--  SMALLER BY DEFAULT + WIRE EVERYTHING UP
+	-- ------------------------------------------------------------------
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		if typeof(config) ~= "table" then config = {} end
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			-- much smaller unless the caller asked for a specific size
+			if config.Size == nil then
+				win.BaseSize = Vector2.new(470, 316)
+			end
+			if config.SidebarWidth == nil then
+				win.SidebarWidth = 118
+			end
+			win.HeaderHeight = math.min(win.HeaderHeight or 40, 34)
+			if win.Header then win.Header.Size = UDim2.new(1, 0, 0, win.HeaderHeight) end
+			if win.Brand then win.Brand.Size = UDim2.new(1, 0, 0, 48) end
+
+			-- take over dragging so the window can leave the screen
+			win.DragEnabled = win.Config.Draggable ~= false
+			win.Config.Draggable = false -- disables the core's clamped drag
+			if win.Header then win:_BindDrag(win.Header) end
+			if win.Brand then win:_BindDrag(win.Brand) end
+
+			buildSidebarHandle(win)
+			win:SetSidebarWidth(win.SidebarWidth)
+			win:_LayoutRows()
+			win:_Refresh()
+		end)
+
+		return win
+	end
+end
+
+
 return NexoUI
