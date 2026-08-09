@@ -8984,4 +8984,203 @@ do
 end
 
 
+-- =====================================================================
+--  34. NEXO UI 2.5  -  TAB ROW FIX + PLAIN CIRCLE MINI BALL
+--  * tabs get their own dedicated row right under the header (exactly
+--    where the Combat / Farming pills used to be) instead of fighting
+--    the header layout, so they can never disappear again
+--  * sub tabs slide one row further down
+--  * mini ball: no laser, no orbit, no spark - just a red circle with
+--    the image icon and a white / red outline
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local WHITE = Color3.new(1, 1, 1)
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	local TAB_ROW = 28
+	local SUB_ROW = 26
+
+	-- ------------------------------------------------------------------
+	--  ROW LAYOUT: header / tabs / sub tabs / content
+	-- ------------------------------------------------------------------
+	function Window:_LayoutRows()
+		local top = self.HeaderHeight or 34
+		local y = top
+
+		if self.TabRow then
+			local show = not self.Minimized and #self.Tabs > 0
+			self.TabRow.Visible = show
+			self.TabRow.Position = UDim2.fromOffset(0, y)
+			self.TabRow.Size = UDim2.new(1, 0, 0, TAB_ROW)
+			if show then y = y + TAB_ROW end
+		end
+
+		local holder = self.SubBarHolder
+		if holder and holder.Parent == self.Body then
+			local show = not self.Minimized and self:_HasSubTabs()
+			holder.Visible = show
+			holder.Position = UDim2.fromOffset(0, y)
+			holder.Size = UDim2.new(1, 0, 0, SUB_ROW)
+			if show then y = y + SUB_ROW end
+		end
+
+		if self.Pages and not self.Minimized then
+			tw(self.Pages, Motion.Fast, {
+				Position = UDim2.fromOffset(0, y),
+				Size = UDim2.new(1, 0, 1, -y),
+			})
+		end
+		return self
+	end
+
+	local function sizeTabButton(win, tab)
+		if not tab or not tab.Button then return end
+		local label = tab.Label
+		local isImage = tab.Icon ~= nil and tab.Icon:IsA("ImageLabel") and tab.Icon.Visible
+		local inset = isImage and 22 or 0
+		local width = math.clamp(#tostring(tab.Name) * 7 + inset + 20, 52, 170)
+		tab.Button.Size = UDim2.fromOffset(width, TAB_ROW - 6)
+		tab.Button.Visible = tab.UserVisible ~= false
+		if label then
+			label.Visible = true
+			label.TextTransparency = tab.Active and 0 or 0.15
+		end
+		if tab._Paint then Util.safe(function() tab:_Paint(tab.Active, true) end) end
+	end
+
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			-- dedicated tab row, owned by us, nothing else lays it out
+			local row = win.TabRow
+			if not row then
+				row = Util.new("Frame", {
+					Name = "TabRow",
+					Position = UDim2.fromOffset(0, win.HeaderHeight or 34),
+					Size = UDim2.new(1, 0, 0, TAB_ROW),
+					BackgroundTransparency = 1,
+					ClipsDescendants = true,
+					ZIndex = LAYER.Header + 1,
+					Parent = win.Body,
+				})
+				win.TabRow = row
+			end
+
+			local strip = win.TabList
+			if strip then
+				strip.Name = "TabStrip"
+				strip.Parent = row
+				strip.Visible = true
+				strip.AnchorPoint = Vector2.new(0, 0)
+				strip.Position = UDim2.fromOffset(0, 0)
+				strip.Size = UDim2.fromScale(1, 1)
+				strip.BackgroundTransparency = 1
+				strip.ScrollingDirection = Enum.ScrollingDirection.X
+				strip.AutomaticCanvasSize = Enum.AutomaticSize.X
+				strip.CanvasSize = UDim2.new()
+				strip.ScrollBarThickness = 0
+				strip.ClipsDescendants = true
+				strip.ZIndex = LAYER.Header + 2
+				local list = strip:FindFirstChildOfClass("UIListLayout")
+				if list then
+					list.FillDirection = Enum.FillDirection.Horizontal
+					list.VerticalAlignment = Enum.VerticalAlignment.Center
+					list.HorizontalAlignment = Enum.HorizontalAlignment.Left
+					list.Padding = UDim.new(0, 2)
+				end
+				local pad = strip:FindFirstChildOfClass("UIPadding")
+				if pad then
+					pad.PaddingTop = UDim.new(0, 0)
+					pad.PaddingBottom = UDim.new(0, 0)
+					pad.PaddingLeft = UDim.new(0, 12)
+					pad.PaddingRight = UDim.new(0, 12)
+				end
+				for _, tab in ipairs(win.Tabs) do sizeTabButton(win, tab) end
+			end
+
+			-- sub tabs sit one row lower
+			if win.SubBarHolder then
+				win.SubBarHolder.Parent = win.Body
+				win.SubBarHolder.ZIndex = LAYER.Header
+			end
+
+			win:_LayoutRows()
+			win:_Refresh()
+		end)
+
+		return win
+	end
+
+	local previousTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousTab(self, config)
+		Util.safe(function()
+			if not tab then return end
+			sizeTabButton(self, tab)
+			self:_LayoutRows()
+		end)
+		return tab
+	end
+
+	-- ------------------------------------------------------------------
+	--  MINI BALL: plain red circle + icon, no laser / orbit / spark
+	-- ------------------------------------------------------------------
+	local previousMini = Window._BuildMiniButton
+	function Window:_BuildMiniButton()
+		local mini = previousMini(self)
+		Util.safe(function()
+			local parts = self.MiniParts
+			if not parts or not parts.Root then return end
+
+			-- strip every laser / orbit / spark part
+			local laser = mini:FindFirstChild("LaserRing")
+			if laser then laser:Destroy() end
+			parts.Ring = nil
+			parts.Dot = nil
+			parts.Trail = nil
+
+			-- guarantee a perfect circle
+			local aspect = mini:FindFirstChildOfClass("UIAspectRatioConstraint")
+				or Util.new("UIAspectRatioConstraint", { Parent = mini })
+			aspect.AspectRatio = 1
+			local corner = mini:FindFirstChildOfClass("UICorner")
+			if corner then corner.CornerRadius = UDim.new(1, 0) end
+
+			if parts.Icon then
+				parts.Icon.Size = UDim2.fromScale(0.82, 0.82)
+				parts.Icon.ScaleType = Enum.ScaleType.Fit
+			end
+			if parts.Halo and parts.Halo.Parent then
+				local halo = parts.Halo.Parent
+				local haloCorner = halo:FindFirstChildOfClass("UICorner")
+				if haloCorner then haloCorner.CornerRadius = UDim.new(1, 0) end
+				local haloAspect = halo:FindFirstChildOfClass("UIAspectRatioConstraint")
+					or Util.new("UIAspectRatioConstraint", { Parent = halo })
+				haloAspect.AspectRatio = 1
+			end
+
+			self:_SyncMini(true)
+		end)
+		return mini
+	end
+
+	local previousSync = Window._SyncMini
+	function Window:_SyncMini(instant)
+		local parts = self.MiniParts
+		if parts then
+			parts.Ring = nil
+			parts.Dot = nil
+			parts.Trail = nil
+		end
+		previousSync(self, instant)
+	end
+end
+
+
 return NexoUI
