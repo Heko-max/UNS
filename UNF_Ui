@@ -8156,4 +8156,237 @@ do
 end
 
 
+-- =====================================================================
+--  31. NEXO UI 2.2  -  FLAT UNDERLINE TABS + EQUIPPED (RED) OUTLINE
+--  Top row = tabs (plain text + sliding red underline, no pill button,
+--  no dot). Left rail = sections. Active items get a clean red ring so
+--  it is obvious what is currently equipped / selected.
+-- =====================================================================
+do
+	local Motion = NexoUI.Motion
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+
+	-- ------------------------------------------------------------------
+	--  TABS
+	-- ------------------------------------------------------------------
+	local previousTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousTab(self, config)
+		if not tab or not tab.Button then return tab end
+		local window = self
+
+		Util.safe(function()
+			local button, label, icon = tab.Button, tab.Label, tab.Icon
+			local theme = NexoUI.Theme
+
+			-- strip the old pill: no fill, no border, no gradient, no dot
+			button.BackgroundTransparency = 1
+			button.AutoButtonColor = false
+			button.ClipsDescendants = false
+			for _, child in ipairs(button:GetChildren()) do
+				if child:IsA("UIStroke") then
+					child.Transparency = 1
+					child.Enabled = false
+				elseif child:IsA("UIGradient") then
+					child.Enabled = false
+				elseif child:IsA("UICorner") then
+					child.CornerRadius = UDim.new(0, 9)
+				end
+			end
+
+			local isImage = icon ~= nil and icon:IsA("ImageLabel")
+			if icon and not isImage then icon.Visible = false end
+			local inset = isImage and 22 or 0
+			if isImage then
+				icon.AnchorPoint = Vector2.new(0, 0.5)
+				icon.Position = UDim2.new(0, 8, 0.5, 0)
+			end
+			if label then
+				label.Position = UDim2.fromOffset(inset, 0)
+				label.Size = UDim2.new(1, -inset, 1, 0)
+				label.TextXAlignment = Enum.TextXAlignment.Center
+				label.Font = FONT.Bold
+				label.TextSize = 12
+			end
+
+			local width = math.clamp(#tostring(tab.Name) * 7 + inset + 20, 52, 170)
+			if window.TopBar then
+				button.Size = UDim2.fromOffset(width, (window.TopBarHeight or 30) - 6)
+			else
+				width = button.AbsoluteSize.X > 0 and button.AbsoluteSize.X or width
+			end
+
+			-- sliding red underline
+			local underline = Util.new("Frame", {
+				Name = "Underline",
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, 0),
+				Size = UDim2.fromOffset(0, 2),
+				BackgroundColor3 = theme.Accent,
+				BackgroundTransparency = 0.05,
+				BorderSizePixel = 0,
+				ZIndex = LAYER.Content + 6,
+				Parent = button,
+			}, { Util.corner(999) })
+			NexoUI.TrackGradient(Util.gradient(NexoUI.Gradient or Util.cseq(
+				{ 0, theme.AccentLight }, { 1, theme.AccentDark }
+			), 0)).Parent = underline
+
+			-- "equipped" red ring for the active tab
+			local ring = Util.stroke(theme.Accent, 1, 1.1)
+			ring.Parent = button
+			ring.Enabled = true
+
+			tab.Underline = underline
+			tab.Ring = ring
+
+			function tab:_Paint(active, instant)
+				local t = NexoUI.Theme
+				self.Active = active and true or false
+				local dur = instant and 0 or Motion.Base
+				local target = button.AbsoluteSize.X > 0 and button.AbsoluteSize.X or width
+				tw(underline, dur, {
+					Size = UDim2.fromOffset(self.Active and math.max(target - 18, 12) or 0, 2),
+					BackgroundTransparency = self.Active and 0.05 or 1,
+				})
+				tw(ring, dur, { Transparency = self.Active and 0.42 or 1 })
+				tw(button, dur, { BackgroundTransparency = self.Active and 0.93 or 1 })
+				if label then
+					tw(label, dur, { TextColor3 = self.Active and t.Text or t.SubText })
+					label.TextTransparency = self.Active and 0 or 0.15
+				end
+				if isImage then
+					tw(icon, dur, { ImageColor3 = self.Active and t.Accent or t.MutedText })
+				end
+				ring.Color = t.Accent
+				underline.BackgroundColor3 = t.Accent
+				return self
+			end
+
+			tab._SetCompact = function() return tab end
+
+			tab.Maid:Give(button.MouseEnter:Connect(function()
+				if tab.Active then return end
+				if label then tw(label, Motion.Fast, { TextColor3 = NexoUI.Theme.Text }) end
+				tw(underline, Motion.Fast, {
+					Size = UDim2.fromOffset(14, 2),
+					BackgroundTransparency = 0.55,
+				})
+			end))
+			tab.Maid:Give(button.MouseLeave:Connect(function()
+				if tab.Active then return end
+				if label then tw(label, Motion.Fast, { TextColor3 = NexoUI.Theme.SubText }) end
+				tw(underline, Motion.Fast, { Size = UDim2.fromOffset(0, 2), BackgroundTransparency = 1 })
+			end))
+
+			tab:_Paint(tab.Active, true)
+			task.defer(function()
+				if button.Parent then tab:_Paint(tab.Active, true) end
+			end)
+		end)
+
+		return tab
+	end
+
+	-- ------------------------------------------------------------------
+	--  LEFT RAIL SECTIONS: same equipped ring, rounded, clean
+	-- ------------------------------------------------------------------
+	local function paintNav(entry, active, instant)
+		local dur = instant and 0 or Motion.Fast
+		entry.Active = active and true or false
+		if entry.Ring then tw(entry.Ring, dur, { Transparency = entry.Active and 0.4 or 1 }) end
+		if entry.Button then
+			tw(entry.Button, dur, { BackgroundTransparency = entry.Active and 0.88 or 1 })
+		end
+		if entry.Label then
+			tw(entry.Label, dur, {
+				TextColor3 = entry.Active and NexoUI.Theme.Text or NexoUI.Theme.SubText,
+			})
+		end
+		if entry.Dot then
+			tw(entry.Dot, dur, {
+				BackgroundTransparency = entry.Active and 0 or 0.45,
+				Size = UDim2.fromOffset(entry.Active and 5 or 4, entry.Active and 5 or 4),
+			})
+		end
+	end
+
+	function Window:SetActiveSection(section)
+		for _, entry in ipairs(self.NavEntries or {}) do
+			paintNav(entry, entry.Section == section)
+		end
+		self.ActiveSection = section
+		return self
+	end
+
+	local previousSection = ContainerMethods.CreateSection
+	function ContainerMethods:CreateSection(config)
+		local section = previousSection(self, config)
+		local window = self.Window
+		if not section or not window or not window.NavEntries then return section end
+
+		Util.safe(function()
+			local entry
+			for _, candidate in ipairs(window.NavEntries) do
+				if candidate.Section == section then entry = candidate end
+			end
+			if not entry or not entry.Button then return end
+
+			local ring = Util.stroke(NexoUI.Theme.Accent, 1, 1)
+			ring.Parent = entry.Button
+			entry.Ring = ring
+			paintNav(entry, false, true)
+
+			window.Maid:Give(entry.Button.Activated:Connect(function()
+				window:SetActiveSection(section)
+			end))
+			window.Maid:Give(Util.onTheme(function(t)
+				if not entry.Button.Parent then return end
+				ring.Color = t.Accent
+				paintNav(entry, entry.Active, true)
+			end))
+		end)
+
+		return section
+	end
+
+	-- ------------------------------------------------------------------
+	--  SOFTER SHELL CORNERS
+	-- ------------------------------------------------------------------
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			if win.TopBar then
+				Util.corner(12).Parent = win.TopBar
+				win.TopBar.ClipsDescendants = false
+				local line = win.TopBar:FindFirstChild("Line")
+				if line then
+					line.Size = UDim2.new(1, -20, 0, 1)
+					line.Position = UDim2.new(0, 10, 1, 0)
+					line.BackgroundTransparency = 0.88
+				end
+			end
+			if win.Sidebar then Util.corner(12).Parent = win.Sidebar end
+			if win.Header then Util.corner(12).Parent = win.Header end
+			for _, descendant in ipairs(win.Gui:GetDescendants()) do
+				if descendant:IsA("UICorner") and descendant.CornerRadius.Offset > 0
+					and descendant.CornerRadius.Offset < 6 then
+					descendant.CornerRadius = UDim.new(0, 8)
+				end
+			end
+			for _, tab in ipairs(win.Tabs) do
+				if tab._Paint then Util.safe(function() tab:_Paint(tab.Active, true) end) end
+			end
+		end)
+
+		return win
+	end
+end
+
+
 return NexoUI
