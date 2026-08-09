@@ -9184,33 +9184,84 @@ end
 
 
 -- =====================================================================
---  35. NEXO UI 2.6
---  * tabs go back to the LEFT rail (vertical), sections sit under them
---  * mini ball = just the circular image, no ring, no glow, no laser
---  * another size cut
+--  36. NEXO UI 2.7
+--  * one full width top bar:  [ IMAGE ]  |  texts  |  search/min/close
+--  * brand logo + brand text removed from the sidebar
+--  * controls physically cannot leave the window (clipped + padded)
+--  * minimize collapses to the tall top bar, instantly
+--  * old mini/hide button deleted, rebuilt from scratch (image only)
 -- =====================================================================
 do
 	local Motion = NexoUI.Motion
+	local WHITE = Color3.new(1, 1, 1)
+	local TOP_H = 44
+	local SUB_ROW = 24
+	local MINI = 40
+
 	local function tw(inst, dur, goal, style)
 		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
 	end
 
-	local BRAND_H = 42
-	local SUB_ROW = 24
+	-- placeholder slots, fill these in whenever you want
+	NexoUI.BrandIcon = NexoUI.BrandIcon or ""
+	NexoUI.MiniIcon = NexoUI.MiniIcon or "rbxassetid://134473690393403"
 
 	-- ------------------------------------------------------------------
-	--  ROWS: header, optional sub tab row, content. No top tab row.
+	--  GEOMETRY: everything sits under the top bar
 	-- ------------------------------------------------------------------
+	function Window:_ApplyTopOffset()
+		if not self.TopBar or not self.TopBar.Parent then return self end
+		local top = self.TopBarHeight or TOP_H
+		local width = self.Narrow and 56 or self.SidebarWidth
+
+		self.TopBar.Visible = true
+		self.TopBar.Position = UDim2.fromOffset(0, 0)
+		self.TopBar.Size = UDim2.new(1, 0, 0, top)
+
+		if not self.Minimized then
+			self.Sidebar.Position = UDim2.fromOffset(0, top)
+			self.Sidebar.Size = UDim2.new(0, width, 1, -top)
+			self.Body.Position = UDim2.fromOffset(width, top)
+			self.Body.Size = UDim2.new(1, -width, 1, -top)
+			Util.safe(function()
+				if self.SidebarHandle and self.SidebarHandle.Parent then
+					self.SidebarHandle.Position = UDim2.fromOffset(width - 3, top)
+					self.SidebarHandle.Size = UDim2.new(0, 6, 1, -top)
+				end
+			end)
+		end
+		return self
+	end
+
+	local previousRefresh = Window._Refresh
+	function Window:_Refresh(...)
+		local result = previousRefresh(self, ...)
+		Util.safe(function() self:_ApplyTopOffset() end)
+		return result
+	end
+
+	local previousLayoutMode = Window._ApplyLayoutMode
+	function Window:_ApplyLayoutMode(...)
+		local result = previousLayoutMode(self, ...)
+		Util.safe(function() self:_ApplyTopOffset() end)
+		return result
+	end
+
+	-- the inner header is gone, so rows start at the top of the body
 	function Window:_LayoutRows()
-		local y = self.HeaderHeight or 30
+		local y = 0
 		if self.TabRow then self.TabRow.Visible = false end
+		if self.Header then
+			self.Header.Visible = false
+			self.Header.Size = UDim2.new(1, 0, 0, 0)
+		end
 
 		local holder = self.SubBarHolder
 		if holder and holder.Parent == self.Body then
 			local show = not self.Minimized and self:_HasSubTabs()
 			holder.Visible = show
 			holder.Position = UDim2.fromOffset(0, y)
-			holder.Size = UDim2.new(1, 0, 0, SUB_ROW)
+			holder.Size = UDim2.new(1, -8, 0, SUB_ROW)
 			if show then y = y + SUB_ROW end
 		end
 
@@ -9224,183 +9275,336 @@ do
 	end
 
 	-- ------------------------------------------------------------------
-	--  VERTICAL TAB BUTTONS
+	--  MINIMISE: collapse to the top bar, no thin black strip
 	-- ------------------------------------------------------------------
-	local function styleTab(win, tab)
-		if not tab or not tab.Button then return end
-		local button, label, icon = tab.Button, tab.Label, tab.Icon
-		local isImage = icon ~= nil and icon:IsA("ImageLabel")
+	function Window:Minimize(state)
+		if state == nil then state = not self.Minimized end
+		self.Minimized = state and true or false
+		local small = self.Minimized
 
-		button.Size = UDim2.new(1, 0, 0, 24)
-		button.Visible = tab.UserVisible ~= false
-
-		if isImage then
-			icon.AnchorPoint = Vector2.new(0, 0.5)
-			icon.Position = UDim2.new(0, 10, 0.5, 0)
+		self.Main.Visible = true
+		self.Main.BackgroundTransparency = self.BackgroundAlpha or 0.22
+		if self.TopBar then self.TopBar.Visible = true end
+		self.Sidebar.Visible = not small
+		self.Body.Visible = not small
+		self.Pages.Visible = not small
+		if self.SubBarHolder then
+			self.SubBarHolder.Visible = (not small) and self:_HasSubTabs()
 		end
-		local inset = isImage and 26 or 12
-		if label then
-			label.Position = UDim2.fromOffset(inset, 0)
-			label.Size = UDim2.new(1, -(inset + 8), 1, 0)
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			label.TextSize = 11.5
-			label.Visible = true
-		end
-
-		-- the underline becomes a left marker bar
-		local bar = tab.Underline
-		if bar then
-			bar.AnchorPoint = Vector2.new(0, 0.5)
-			bar.Position = UDim2.new(0, 3, 0.5, 0)
-			bar.Size = UDim2.fromOffset(2, 0)
-		end
-
-		function tab:_Paint(active, instant)
-			local t = NexoUI.Theme
-			self.Active = active and true or false
-			local dur = instant and 0 or Motion.Base
-			if bar then
-				tw(bar, dur, {
-					Size = UDim2.fromOffset(2, self.Active and 13 or 0),
-					BackgroundTransparency = self.Active and 0 or 1,
-				})
-				bar.BackgroundColor3 = t.Accent
-			end
-			if self.Ring then
-				tw(self.Ring, dur, { Transparency = self.Active and 0.45 or 1 })
-				self.Ring.Color = t.Accent
-			end
-			tw(button, dur, { BackgroundTransparency = self.Active and 0.9 or 1 })
-			if label then
-				tw(label, dur, { TextColor3 = self.Active and t.Text or t.SubText })
-				label.TextTransparency = self.Active and 0 or 0.2
-			end
-			if isImage then
-				tw(icon, dur, { ImageColor3 = self.Active and t.Accent or t.MutedText })
-			end
-			return self
-		end
-
-		tab._SetCompact = function(_, compact)
-			if label then label.Visible = not compact end
-			return tab
-		end
-		tab:_Paint(tab.Active, true)
-	end
-
-	local function mountLeftRail(win)
-		local strip = win.TabList
-		if not strip then return end
-
-		if win.TabRow then
-			win.TabRow.Visible = false
-			win.TabRow:Destroy()
-			win.TabRow = nil
-		end
-
-		strip.Name = "TabList"
-		strip.Parent = win.Sidebar
-		strip.Visible = true
-		strip.AnchorPoint = Vector2.new(0, 0)
-		strip.Position = UDim2.fromOffset(0, BRAND_H)
-		strip.Size = UDim2.new(1, 0, 0.52, -(BRAND_H + 4))
-		strip.BackgroundTransparency = 1
-		strip.ScrollingDirection = Enum.ScrollingDirection.Y
-		strip.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		strip.CanvasSize = UDim2.new()
-		strip.ScrollBarThickness = 0
-		strip.ClipsDescendants = true
-		strip.ZIndex = LAYER.Content + 3
-
-		local list = strip:FindFirstChildOfClass("UIListLayout")
-		if list then
-			list.FillDirection = Enum.FillDirection.Vertical
-			list.HorizontalAlignment = Enum.HorizontalAlignment.Left
-			list.VerticalAlignment = Enum.VerticalAlignment.Top
-			list.Padding = UDim.new(0, 2)
-		end
-		local pad = strip:FindFirstChildOfClass("UIPadding")
-		if pad then
-			pad.PaddingTop = UDim.new(0, 2)
-			pad.PaddingBottom = UDim.new(0, 4)
-			pad.PaddingLeft = UDim.new(0, 6)
-			pad.PaddingRight = UDim.new(0, 6)
-		end
-
-		-- sections keep the lower half of the rail
-		if win.NavCaption then
-			win.NavCaption.Position = UDim2.new(0, 10, 0.52, 0)
-			win.NavCaption.Size = UDim2.new(1, -20, 0, 11)
-		end
-		if win.SectionNav then
-			win.SectionNav.Position = UDim2.new(0, 0, 0.52, 13)
-			win.SectionNav.Size = UDim2.new(1, 0, 0.48, -35)
-		end
-
-		for _, tab in ipairs(win.Tabs) do styleTab(win, tab) end
-	end
-
-	local previousTab = Window.CreateTab
-	function Window:CreateTab(config)
-		local tab = previousTab(self, config)
-		Util.safe(function() styleTab(self, tab) end)
-		return tab
-	end
-
-	-- ------------------------------------------------------------------
-	--  MINI BALL: only the image, nothing around it
-	-- ------------------------------------------------------------------
-	local previousMini = Window._BuildMiniButton
-	function Window:_BuildMiniButton()
-		local mini = previousMini(self)
+		if self.ResizeGrip then self.ResizeGrip.Visible = not small end
 		Util.safe(function()
-			local parts = self.MiniParts
-			if not parts or not parts.Root then return end
-
-			local halo = parts.Halo and parts.Halo.Parent
-			if halo then halo:Destroy() end
-			parts.Halo = nil
-			for _, child in ipairs(mini:GetChildren()) do
-				if child:IsA("UIStroke") or child:IsA("UIGradient") then child:Destroy() end
-			end
-			parts.Gloss = nil
-
-			mini.BackgroundTransparency = 1
-			mini.Size = UDim2.fromOffset(34, 34)
-			if parts.Icon then
-				parts.Icon.Size = UDim2.fromScale(1, 1)
-				parts.Icon.ScaleType = Enum.ScaleType.Fit
-				parts.Icon.ImageColor3 = Color3.new(1, 1, 1)
-			end
-			for _, bar in ipairs(parts.XBars or {}) do
-				bar.Size = UDim2.fromOffset(11, 2)
-				bar.ZIndex = mini.ZIndex + 8
-			end
-
-			self:_SyncMini(true)
+			if self.SidebarHandle then self.SidebarHandle.Visible = not small end
 		end)
-		return mini
+
+		self:_ApplyTopOffset()
+		self:_Refresh()
+		if small then
+			self.Root.Size = UDim2.fromOffset(self.BaseSize.X, self.TopBarHeight or TOP_H)
+		end
+		if self.MinimizeIcon then
+			tw(self.MinimizeIcon, Motion.Fast, { Rotation = small and 180 or 0 })
+		end
+		return self
 	end
 
-	local previousSync = Window._SyncMini
+	-- ------------------------------------------------------------------
+	--  BRAND ICON SLOT
+	-- ------------------------------------------------------------------
+	function Window:SetBrandIcon(id)
+		if not self.BrandIcon then return self end
+		local img = Util.image(id)
+		self.BrandIcon.Image = img
+		self.BrandIcon.BackgroundTransparency = (img ~= "" and 1) or 0.4
+		if self.BrandHint then self.BrandHint.Visible = img == "" end
+		return self
+	end
+
+	function Window:SetHeaderText(title, subtitle)
+		if self.TopTitle and title ~= nil then self.TopTitle.Text = tostring(title) end
+		if self.TopSub and subtitle ~= nil then self.TopSub.Text = tostring(subtitle) end
+		return self
+	end
+
+	local function buildTopBar(win, config)
+		local theme = NexoUI.Theme
+
+		local bar = Util.new("Frame", {
+			Name = "TopBar",
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.new(1, 0, 0, TOP_H),
+			BackgroundColor3 = theme.Panel,
+			BackgroundTransparency = 0.5,
+			ClipsDescendants = true,
+			Active = true,
+			ZIndex = LAYER.Header + 2,
+			Parent = win.Main,
+		}, { Util.corner(13), Util.pad(0, 10, 0, 9) })
+
+		-- square off the bottom corners so it merges with the window
+		Util.new("Frame", {
+			Name = "Foot",
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, -9, 1, 0),
+			Size = UDim2.new(1, 18, 0, 13),
+			BackgroundColor3 = theme.Panel,
+			BackgroundTransparency = 0.5,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 1,
+			Parent = bar,
+		})
+		Util.new("Frame", {
+			Name = "Underline",
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, -9, 1, 0),
+			Size = UDim2.new(1, 18, 0, 1),
+			BackgroundColor3 = theme.Border,
+			BackgroundTransparency = 0.82,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 3,
+			Parent = bar,
+		})
+
+		-- 1) big image slot -------------------------------------------------
+		local icon = Util.new("ImageLabel", {
+			Name = "BrandIcon",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 0, 0.5, 0),
+			Size = UDim2.fromOffset(30, 30),
+			BackgroundColor3 = theme.Field,
+			BackgroundTransparency = 0.4,
+			Image = "",
+			ScaleType = Enum.ScaleType.Fit,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 4,
+			Parent = bar,
+		}, { Util.corner(9) })
+		Util.stroke(theme.Border, 0.6, 1).Parent = icon
+		local hint = Util.label({
+			Name = "Hint",
+			Size = UDim2.fromScale(1, 1),
+			Text = "IMG",
+			Font = FONT.Bold,
+			TextSize = 8.5,
+			TextColor3 = theme.MutedText,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ZIndex = LAYER.Header + 5,
+			Parent = icon,
+		})
+		win.BrandIcon = icon
+		win.BrandHint = hint
+
+		-- separator
+		Util.new("Frame", {
+			Name = "Sep1",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 39, 0.5, 0),
+			Size = UDim2.fromOffset(1, 18),
+			BackgroundColor3 = theme.Border,
+			BackgroundTransparency = 0.75,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Header + 4,
+			Parent = bar,
+		})
+
+		-- 2) texts ----------------------------------------------------------
+		local info = Util.new("Frame", {
+			Name = "BrandInfo",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 49, 0.5, 0),
+			Size = UDim2.new(1, -175, 0, 30),
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			ZIndex = LAYER.Header + 4,
+			Parent = bar,
+		})
+		win.TopTitle = Util.label({
+			Name = "Title",
+			Position = UDim2.fromOffset(0, 1),
+			Size = UDim2.new(1, 0, 0, 15),
+			Text = tostring(config.Title or config.Name or win.Name or "NEXO"),
+			Font = FONT.Black,
+			TextSize = 13,
+			TextColor3 = theme.Text,
+			ZIndex = LAYER.Header + 5,
+			Parent = info,
+		})
+		win.TopSub = Util.label({
+			Name = "Subtitle",
+			Position = UDim2.fromOffset(0, 16),
+			Size = UDim2.new(1, 0, 0, 12),
+			Text = tostring(config.Subtitle or "v2  -  premium suite"),
+			Font = FONT.Medium,
+			TextSize = 9.5,
+			TextColor3 = theme.MutedText,
+			ZIndex = LAYER.Header + 5,
+			Parent = info,
+		})
+
+		-- 3) controls, locked inside the bar --------------------------------
+		local controls = win.Header and win.Header:FindFirstChild("Controls")
+		if controls then
+			controls.Parent = bar
+			controls.AnchorPoint = Vector2.new(1, 0.5)
+			controls.Position = UDim2.new(1, 0, 0.5, 0)
+			controls.ZIndex = LAYER.Header + 5
+			for _, child in ipairs(controls:GetDescendants()) do
+				if child:IsA("GuiObject") then child.ZIndex = LAYER.Header + 6 end
+			end
+			Util.new("Frame", {
+				Name = "Sep2",
+				Size = UDim2.fromOffset(1, 18),
+				BackgroundColor3 = theme.Border,
+				BackgroundTransparency = 0.75,
+				BorderSizePixel = 0,
+				LayoutOrder = -1,
+				ZIndex = LAYER.Header + 5,
+				Parent = controls,
+			})
+			-- keep the expanded search field from pushing anything outside
+			if win.SearchBox then
+				win.Maid:Give(win.SearchBox:GetPropertyChangedSignal("Size"):Connect(function()
+					local cap = math.max(40, math.floor(win.Root.AbsoluteSize.X - 150))
+					if win.SearchBox.Size.X.Offset > cap then
+						win.SearchBox.Size = UDim2.fromOffset(cap, win.SearchBox.Size.Y.Offset)
+					end
+				end))
+			end
+		end
+
+		win.TopBar = bar
+		win.TopBarHeight = TOP_H
+		Util.safe(function() win:_BindDrag(bar) end)
+		win.Maid:Give(Util.onTheme(function(t)
+			if not bar.Parent then return end
+			bar.BackgroundColor3 = t.Panel
+			if win.TopTitle then win.TopTitle.TextColor3 = t.Text end
+			if win.TopSub then win.TopSub.TextColor3 = t.MutedText end
+		end))
+		return bar
+	end
+
+	-- ------------------------------------------------------------------
+	--  MINI BUTTON, BUILT FROM SCRATCH (old one is destroyed)
+	-- ------------------------------------------------------------------
 	function Window:_SyncMini(instant)
 		local parts = self.MiniParts
-		if parts then
-			parts.Halo = nil
-			parts.Gloss = nil
+		if not parts or not parts.Root or not parts.Root.Parent then return end
+		local open = self.Visible and true or false
+		local dur = instant and 0 or Motion.Fast
+		for _, bar in ipairs(parts.XBars or {}) do
+			tw(bar, dur, {
+				BackgroundTransparency = open and 0 or 1,
+				Rotation = (bar:GetAttribute("Base") or 45) + (open and 0 or 45),
+			})
 		end
-		previousSync(self, instant)
-		if parts and parts.Icon and parts.Icon.Parent then
-			local dur = instant and 0 or Motion.Fast
+		if parts.Icon then
 			tw(parts.Icon, dur, {
-				ImageTransparency = self.Visible and 0.55 or 0,
-				Size = UDim2.fromScale(self.Visible and 0.86 or 1, self.Visible and 0.86 or 1),
+				ImageTransparency = open and 0.6 or 0,
+				Size = UDim2.fromScale(open and 0.8 or 1, open and 0.8 or 1),
 			})
 		end
 	end
 
+	function Window:_BuildMiniButton()
+		-- wipe anything left over from older versions
+		Util.safe(function()
+			if self.Mini and self.Mini.Parent then self.Mini:Destroy() end
+			for _, child in ipairs(self.Gui:GetChildren()) do
+				local n = child.Name
+				if n == "Mini" or n == "MiniButton" or n == "Toggle" or n == "HideButton" then
+					child:Destroy()
+				end
+			end
+		end)
+		self.MiniParts = nil
+
+		local vp = Camera.ViewportSize
+		local mini = Util.new("TextButton", {
+			Name = "Mini",
+			Text = "",
+			AutoButtonColor = false,
+			Position = UDim2.fromOffset(16, math.max(16, math.floor(vp.Y / 2) - MINI // 2)),
+			Size = UDim2.fromOffset(MINI, MINI),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+			ZIndex = LAYER.Toast + 40,
+			Parent = self.Gui,
+		}, { Util.corner(999) })
+		Util.new("UIAspectRatioConstraint", { AspectRatio = 1, Parent = mini })
+
+		local icon = Util.new("ImageLabel", {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Image = Util.image(self.Config and self.Config.MiniIcon or NexoUI.MiniIcon),
+			ScaleType = Enum.ScaleType.Fit,
+			BorderSizePixel = 0,
+			ZIndex = LAYER.Toast + 41,
+			Parent = mini,
+		})
+
+		local xBars = {}
+		for i = 1, 2 do
+			local base = i == 1 and 45 or -45
+			local bar = Util.new("Frame", {
+				Name = "X" .. i,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(12, 2),
+				Rotation = base,
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ZIndex = LAYER.Toast + 45,
+				Parent = mini,
+			}, { Util.corner(999) })
+			bar:SetAttribute("Base", base)
+			table.insert(xBars, bar)
+		end
+
+		self.Mini = mini
+		self.MiniParts = { Root = mini, Icon = icon, XBars = xBars }
+
+		-- drag, with a hard screen clamp: the ball never leaves the screen
+		local dragging, moved, startInput, startPos = false, false, nil, nil
+		self.Maid:Give(mini.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging, moved = true, false
+				startInput, startPos = input.Position, mini.Position
+				tw(mini, 0.08, { Size = UDim2.fromOffset(MINI - 3, MINI - 3) })
+			end
+		end))
+		self.Maid:Give(UserInputService.InputChanged:Connect(function(input)
+			if not dragging or not startInput then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement
+				and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local delta = input.Position - startInput
+			if math.abs(delta.X) + math.abs(delta.Y) > 4 then moved = true end
+			local screen = Camera.ViewportSize
+			local x = math.clamp(startPos.X.Offset + delta.X, 4, math.max(4, screen.X - MINI - 4))
+			local y = math.clamp(startPos.Y.Offset + delta.Y, 4, math.max(4, screen.Y - MINI - 4))
+			mini.Position = UDim2.fromOffset(x, y)
+		end))
+		self.Maid:Give(UserInputService.InputEnded:Connect(function(input)
+			if not dragging then return end
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = false
+				tw(mini, 0.1, { Size = UDim2.fromOffset(MINI, MINI) })
+				if not moved then Util.safe(function() self:Toggle() end) end
+			end
+		end))
+
+		self:_SyncMini(true)
+		return mini
+	end
+
 	-- ------------------------------------------------------------------
-	--  SMALLER STILL
+	--  ASSEMBLE
 	-- ------------------------------------------------------------------
 	local previousCreateWindow = NexoUI.CreateWindow
 	function NexoUI:CreateWindow(config)
@@ -9409,17 +9613,34 @@ do
 		if not win then return win end
 
 		Util.safe(function()
-			if config.Size == nil then win.BaseSize = Vector2.new(408, 268) end
-			if config.SidebarWidth == nil then win.SidebarWidth = 104 end
-			win.HeaderHeight = 30
-			if win.Header then win.Header.Size = UDim2.new(1, 0, 0, 30) end
-			if win.Brand then win.Brand.Size = UDim2.new(1, 0, 0, BRAND_H) end
-			if win.BrandText then win.BrandText.TextSize = 12.5 end
-			if win.BrandSub then win.BrandSub.TextSize = 9 end
-			if win.SearchBox then win.SearchBox.TextSize = 11 end
+			-- sidebar brand block is gone for good
+			if win.Brand then win.Brand.Visible = false end
+			if win.Logo then win.Logo.Visible = false end
+			if win.BrandText then win.BrandText.Visible = false end
+			if win.BrandSub then win.BrandSub.Visible = false end
 
-			mountLeftRail(win)
-			win:SetSidebarWidth(win.SidebarWidth)
+			-- reclaim the space the brand used to take
+			if win.TabList then
+				win.TabList.Position = UDim2.fromOffset(0, 6)
+				win.TabList.Size = UDim2.new(1, 0, 0.55, -14)
+			end
+			if win.NavCaption then
+				win.NavCaption.Position = UDim2.new(0, 10, 0.55, 0)
+			end
+			if win.SectionNav then
+				win.SectionNav.Position = UDim2.new(0, 0, 0.55, 13)
+				win.SectionNav.Size = UDim2.new(1, 0, 0.45, -35)
+			end
+
+			win.HeaderHeight = TOP_H
+			buildTopBar(win, config)
+			win:SetBrandIcon(config.BrandIcon or config.HeaderIcon or NexoUI.BrandIcon)
+
+			-- nothing may render outside the window frame
+			win.Main.ClipsDescendants = true
+			if win.Body then win.Body.ClipsDescendants = true end
+
+			win:_ApplyTopOffset()
 			win:_LayoutRows()
 			win:_Refresh()
 		end)
