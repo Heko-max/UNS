@@ -657,7 +657,7 @@ function Window:_Refresh()
 	local base = self.BaseSize
 	local scale = math.clamp(
 		math.min(vp.X * 0.94 / base.X, vp.Y * 0.94 / base.Y),
-		0.45, 1.3
+		0.4, 1.2
 	)
 	self.Scale.Scale = scale
 	local height = math.min(base.Y, (vp.Y * 0.96) / scale)
@@ -967,21 +967,22 @@ function NexoUI:CreateWindow(config)
 	self.Visible = true
 	self.Minimized = false
 	self.Narrow = nil
-	self.HeaderHeight = 64
-	self.SidebarWidth = math.clamp(tonumber(config.SidebarWidth) or 210, 140, 320)
+	self.HeaderHeight = 38
+	self.BackgroundAlpha = math.clamp(tonumber(config.Transparency) or 0.22, 0, 0.92)
+	self.SidebarWidth = math.clamp(tonumber(config.SidebarWidth) or 148, 104, 260)
 	self.OnToggle = Signal.new()
 	self.OnResize = Signal.new()
 	self.OnTabChanged = Signal.new()
 	config.Draggable = config.Draggable ~= false
 
 	local size = config.Size
-	local baseW, baseH = 940, 610
+	local baseW, baseH = 580, 392
 	if typeof(size) == "UDim2" then
 		baseW, baseH = size.X.Offset, size.Y.Offset
 	elseif typeof(size) == "Vector2" then
 		baseW, baseH = size.X, size.Y
 	end
-	self.BaseSize = Vector2.new(math.max(baseW, 420), math.max(baseH, 300))
+	self.BaseSize = Vector2.new(math.max(baseW, 360), math.max(baseH, 240))
 
 	local guiName = tostring(config.GuiName or "NexoUI")
 	purgeExisting(guiName)
@@ -1014,7 +1015,7 @@ function NexoUI:CreateWindow(config)
 	self.Scale = Util.new("UIScale", { Scale = 1, Parent = self.Root })
 
 	-- soft outer glow (purely decorative, two cheap rounded frames)
-	for i, spec in ipairs({ { 16, 0.94 }, { 30, 0.972 } }) do
+	for i, spec in ipairs({ { 10, 0.955 }, { 20, 0.982 } }) do
 		Util.new("Frame", {
 			Name = "Glow" .. i,
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1024,18 +1025,19 @@ function NexoUI:CreateWindow(config)
 			BackgroundTransparency = spec[2],
 			ZIndex = LAYER.Content,
 			Parent = self.Root,
-		}, { Util.corner(30 + spec[1]) })
+		}, { Util.corner(16 + spec[1]) })
 	end
 
 	self.Main = Util.new("Frame", {
 		Name = "Main",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = theme.Background,
+		BackgroundTransparency = self.BackgroundAlpha,
 		ClipsDescendants = true,
 		Active = true,
 		ZIndex = LAYER.Content + 1,
 		Parent = self.Root,
-	}, { Util.corner(20) })
+	}, { Util.corner(13) })
 	local mainStroke = Util.stroke(theme.Border, 0.64, 1.4)
 	mainStroke.Parent = self.Main
 	local mainGrad = Util.gradient(Util.cseq(
@@ -1048,7 +1050,7 @@ function NexoUI:CreateWindow(config)
 		Name = "Sidebar",
 		Size = UDim2.new(0, self.SidebarWidth, 1, 0),
 		BackgroundColor3 = theme.Panel,
-		BackgroundTransparency = 0.35,
+		BackgroundTransparency = 0.6,
 		ZIndex = LAYER.Content + 2,
 		Parent = self.Main,
 	})
@@ -1066,12 +1068,12 @@ function NexoUI:CreateWindow(config)
 	-- brand / logo block (fully configurable, also the drag handle)
 	self.Brand = Util.new("Frame", {
 		Name = "Brand",
-		Size = UDim2.new(1, 0, 0, 92),
+		Size = UDim2.new(1, 0, 0, 54),
 		BackgroundTransparency = 1,
 		Active = true,
 		ZIndex = LAYER.Content + 3,
 		Parent = self.Sidebar,
-	}, { Util.pad(20, 16, 12, 16) })
+	}, { Util.pad(9, 10, 5, 10) })
 
 	local logoCfg = config.Logo
 	if typeof(logoCfg) ~= "table" then
@@ -1082,7 +1084,7 @@ function NexoUI:CreateWindow(config)
 	brandList.VerticalAlignment = Enum.VerticalAlignment.Center
 	brandList.Parent = self.Brand
 
-	local logoSize = logoCfg.Size or 34
+	local logoSize = logoCfg.Size or 26
 	self.LogoEnabled = logoCfg.Enabled ~= false
 	local logoId = Util.image(logoCfg.Image)
 	if logoId ~= "" then
@@ -1092,13 +1094,13 @@ function NexoUI:CreateWindow(config)
 			Transparency = logoCfg.Transparency,
 			Color = logoCfg.Color,
 			ScaleType = logoCfg.ScaleType,
-			Corner = logoCfg.Corner or 10,
+			Corner = logoCfg.Corner or 8,
 			LayoutOrder = logoOrder,
-		}, 34)
+		}, 26)
 		self.Logo.Parent = self.Brand
 	else
 		-- generated fallback tile using the first letter of the window name
-		local side = typeof(logoSize) == "number" and logoSize or 34
+		local side = typeof(logoSize) == "number" and logoSize or 26
 		self.Logo = Util.new("Frame", {
 			Name = "Logo",
 			Size = UDim2.fromOffset(side, side),
@@ -1106,7 +1108,7 @@ function NexoUI:CreateWindow(config)
 			LayoutOrder = logoOrder,
 			Parent = self.Brand,
 		}, {
-			Util.corner(11),
+			Util.corner(8),
 			Util.gradient(Util.cseq({ 0, theme.AccentLight }, { 1, theme.AccentDark }), 145),
 			Util.label({
 				Size = UDim2.fromScale(1, 1),
@@ -1122,7 +1124,7 @@ function NexoUI:CreateWindow(config)
 
 	local textStack = Util.new("Frame", {
 		Name = "BrandText",
-		Size = UDim2.new(1, -(typeof(logoSize) == "number" and logoSize or 34) - 12, 0, 0),
+		Size = UDim2.new(1, -(typeof(logoSize) == "number" and logoSize or 26) - 10, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		LayoutOrder = logoOrder == 0 and 1 or 1,
@@ -1133,19 +1135,19 @@ function NexoUI:CreateWindow(config)
 	end
 	self.BrandText = Util.label({
 		Name = "Title",
-		Size = UDim2.new(1, 0, 0, 22),
+		Size = UDim2.new(1, 0, 0, 16),
 		Text = self.Name,
 		Font = FONT.Black,
-		TextSize = 19,
+		TextSize = 14,
 		TextColor3 = theme.Text,
 		Parent = textStack,
 	})
 	self.BrandSub = Util.label({
 		Name = "Subtitle",
-		Size = UDim2.new(1, 0, 0, 14),
+		Size = UDim2.new(1, 0, 0, 12),
 		Text = tostring(config.Subtitle or ""),
 		Font = FONT.Medium,
-		TextSize = 11.5,
+		TextSize = 10,
 		TextColor3 = theme.MutedText,
 		Visible = config.Subtitle ~= nil,
 		Parent = textStack,
@@ -1154,8 +1156,8 @@ function NexoUI:CreateWindow(config)
 	-- tab rail: scrolls when there are more tabs than space
 	self.TabList = Util.new("ScrollingFrame", {
 		Name = "TabList",
-		Position = UDim2.fromOffset(0, 92),
-		Size = UDim2.new(1, 0, 1, -140),
+		Position = UDim2.fromOffset(0, 54),
+		Size = UDim2.new(1, 0, 1, -92),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 2,
@@ -1166,22 +1168,22 @@ function NexoUI:CreateWindow(config)
 		ElasticBehavior = Enum.ElasticBehavior.Never,
 		ZIndex = LAYER.Content + 3,
 		Parent = self.Sidebar,
-	}, { Util.list(6), Util.pad(4, 14, 12, 14) })
+	}, { Util.list(4), Util.pad(4, 8, 8, 8) })
 
 	self.Footer = Util.new("Frame", {
 		Name = "Footer",
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, -10),
-		Size = UDim2.new(1, 0, 0, 34),
+		Position = UDim2.new(0, 0, 1, -6),
+		Size = UDim2.new(1, 0, 0, 20),
 		BackgroundTransparency = 1,
 		ZIndex = LAYER.Content + 3,
 		Parent = self.Sidebar,
-	}, { Util.pad(0, 16, 0, 16) })
+	}, { Util.pad(0, 10, 0, 10) })
 	self.FooterLabel = Util.label({
 		Size = UDim2.fromScale(1, 1),
 		Text = tostring(config.Footer or ("v" .. NexoUI.Version)),
 		Font = FONT.Medium,
-		TextSize = 11,
+		TextSize = 9.5,
 		TextColor3 = theme.MutedText,
 		Parent = self.Footer,
 	})
@@ -1203,39 +1205,39 @@ function NexoUI:CreateWindow(config)
 		Active = true,
 		ZIndex = LAYER.Header,
 		Parent = self.Body,
-	}, { Util.pad(14, 16, 10, 16) })
+	}, { Util.pad(6, 8, 6, 8) })
 
 	-- window controls, right aligned, never overlapping the sub tab rail
 	local controls = Util.new("Frame", {
 		Name = "Controls",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, 0, 0.5, 0),
-		Size = UDim2.fromOffset(0, 32),
+		Size = UDim2.fromOffset(0, 24),
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundTransparency = 1,
 		ZIndex = LAYER.Header + 1,
 		Parent = self.Header,
-	}, { Util.list(8, Enum.FillDirection.Horizontal) })
+	}, { Util.list(6, Enum.FillDirection.Horizontal) })
 	local cList = controls:FindFirstChildOfClass("UIListLayout")
 	if cList then cList.VerticalAlignment = Enum.VerticalAlignment.Center end
 
 	self.SearchBox = Util.new("TextBox", {
 		Name = "SearchBox",
-		Size = UDim2.fromOffset(0, 32),
+		Size = UDim2.fromOffset(0, 24),
 		BackgroundColor3 = theme.Field,
 		Text = "",
 		PlaceholderText = "Search...",
 		PlaceholderColor3 = theme.MutedText,
 		TextColor3 = theme.Text,
 		Font = FONT.Medium,
-		TextSize = 13,
+		TextSize = 11.5,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ClearTextOnFocus = false,
 		Visible = false,
 		LayoutOrder = 0,
 		ZIndex = LAYER.Header + 1,
 		Parent = controls,
-	}, { Util.corner(9), Util.pad(0, 10, 0, 10) })
+	}, { Util.corner(8), Util.pad(0, 8, 0, 8) })
 	Util.stroke(theme.Border, 0.78, 1).Parent = self.SearchBox
 
 	if config.Search ~= false then
@@ -1243,7 +1245,7 @@ function NexoUI:CreateWindow(config)
 		self.Maid:Give(searchBtn.Activated:Connect(function()
 			local open = not self.SearchBox.Visible
 			self.SearchBox.Visible = true
-			Util.tween(self.SearchBox, 0.2, { Size = UDim2.fromOffset(open and 170 or 0, 32) })
+			Util.tween(self.SearchBox, 0.2, { Size = UDim2.fromOffset(open and 132 or 0, 24) })
 			if open then
 				self.SearchBox:CaptureFocus()
 			else
@@ -1273,7 +1275,7 @@ function NexoUI:CreateWindow(config)
 	-- sub tab rail lives on the left of the header and scrolls horizontally
 	self.SubBarHolder = Util.new("Frame", {
 		Name = "SubBars",
-		Size = UDim2.new(1, -128, 1, 0),
+		Size = UDim2.new(1, -104, 1, 0),
 		BackgroundTransparency = 1,
 		ZIndex = LAYER.Header,
 		Parent = self.Header,
@@ -1305,8 +1307,8 @@ function NexoUI:CreateWindow(config)
 	self.ToastLayer = Util.new("Frame", {
 		Name = "ToastLayer",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -18, 1, -18),
-		Size = UDim2.fromOffset(300, 0),
+		Position = UDim2.new(1, -12, 1, -12),
+		Size = UDim2.fromOffset(238, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		ZIndex = LAYER.Toast,
@@ -1343,6 +1345,7 @@ function NexoUI:CreateWindow(config)
 			}, { Util.corner(1) })
 		end
 		local resizing, startPos, startSize = false, nil, nil
+		self.ResizeGrip = grip
 		self.Maid:Give(grip.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1
 				or input.UserInputType == Enum.UserInputType.Touch then
@@ -1358,8 +1361,8 @@ function NexoUI:CreateWindow(config)
 				local delta = input.Position - startPos
 				local scale = math.max(self.Scale.Scale, 0.05)
 				self.BaseSize = Vector2.new(
-					math.clamp(startSize.X + delta.X / scale, 460, 1600),
-					math.clamp(startSize.Y + delta.Y / scale, 320, 1000)
+					math.clamp(startSize.X + delta.X / scale, 360, 1600),
+					math.clamp(startSize.Y + delta.Y / scale, 230, 1000)
 				)
 				self:_Refresh()
 			end
@@ -1425,7 +1428,7 @@ function NexoUI:CreateWindow(config)
 		self:_Refresh()
 		local target = self.Scale.Scale
 		self.Scale.Scale = target * 0.93
-		Util.tween(self.Main, 0.26, { BackgroundTransparency = 0 })
+		Util.tween(self.Main, 0.26, { BackgroundTransparency = self.BackgroundAlpha or 0.22 })
 		Util.tween(self.Scale, 0.42, { Scale = target }, Enum.EasingStyle.Back)
 	end)
 
@@ -1800,13 +1803,13 @@ function Window:CreateTab(config)
 		Name = tab.Name,
 		Text = "",
 		AutoButtonColor = false,
-		Size = UDim2.new(1, 0, 0, 44),
+		Size = UDim2.new(1, 0, 0, 30),
 		BackgroundColor3 = theme.Tab,
 		BackgroundTransparency = 1,
 		LayoutOrder = #self.Tabs + 1,
 		ZIndex = LAYER.Content + 4,
 		Parent = self.TabList,
-	}, { Util.corner(12) })
+	}, { Util.corner(9) })
 	local stroke = Util.stroke(theme.Border, 1, 1)
 	stroke.Parent = button
 	local grad = Util.gradient(
@@ -1820,15 +1823,15 @@ function Window:CreateTab(config)
 	if iconId ~= "" then
 		icon = Util.imageObject({ Image = iconId, Size = config.IconSize or 20, Color = config.IconColor }, 20)
 		icon.AnchorPoint = Vector2.new(0, 0.5)
-		icon.Position = UDim2.new(0, 14, 0.5, 0)
+		icon.Position = UDim2.new(0, 9, 0.5, 0)
 		icon.ZIndex = LAYER.Content + 5
 		icon.Parent = button
 	else
 		icon = Util.new("Frame", {
 			Name = "Dot",
 			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 18, 0.5, 0),
-			Size = UDim2.fromOffset(7, 7),
+			Position = UDim2.new(0, 11, 0.5, 0),
+			Size = UDim2.fromOffset(6, 6),
 			BackgroundColor3 = theme.MutedText,
 			ZIndex = LAYER.Content + 5,
 			Parent = button,
@@ -1837,11 +1840,11 @@ function Window:CreateTab(config)
 
 	local label = Util.label({
 		Name = "Label",
-		Position = UDim2.fromOffset(44, 0),
-		Size = UDim2.new(1, -54, 1, 0),
+		Position = UDim2.fromOffset(30, 0),
+		Size = UDim2.new(1, -38, 1, 0),
 		Text = tab.Name,
 		Font = FONT.Bold,
-		TextSize = 13.5,
+		TextSize = 12,
 		TextColor3 = theme.SubText,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = LAYER.Content + 5,
@@ -1863,7 +1866,7 @@ function Window:CreateTab(config)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ZIndex = LAYER.Content + 3,
 		Parent = self.Pages,
-	}, { Util.list(14), Util.pad(4, 18, 22, 18) })
+	}, { Util.list(8), Util.pad(6, 14, 14, 12) })
 
 	tab.Button = button
 	tab.Icon = icon
@@ -1895,7 +1898,7 @@ function Window:CreateTab(config)
 			icon.Position = UDim2.fromScale(0.5, 0.5)
 		else
 			icon.AnchorPoint = Vector2.new(0, 0.5)
-			icon.Position = UDim2.new(0, icon:IsA("ImageLabel") and 14 or 18, 0.5, 0)
+			icon.Position = UDim2.new(0, icon:IsA("ImageLabel") and 9 or 11, 0.5, 0)
 		end
 	end
 
@@ -2022,7 +2025,7 @@ function ContainerMethods:CreateSection(config)
 		LayoutOrder = tonumber(config.Order) or (#self.Children + 1),
 		ZIndex = LAYER.Content + 3,
 		Parent = self.Content,
-	}, { Util.corner(14), Util.list(0) })
+	}, { Util.corner(11), Util.list(0) })
 	local stroke = Util.stroke(theme.Border, 0.86, 1)
 	stroke.Parent = frame
 	local grad = Util.gradient(Util.cseq({ 0, theme.PanelAlt }, { 1, theme.Background }), 155)
@@ -2033,12 +2036,12 @@ function ContainerMethods:CreateSection(config)
 		Name = "Header",
 		Text = config.Collapsible and "" or nil,
 		AutoButtonColor = config.Collapsible and false or nil,
-		Size = UDim2.new(1, 0, 0, 46),
+		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundTransparency = 1,
 		LayoutOrder = 1,
 		ZIndex = LAYER.Content + 4,
 		Parent = frame,
-	}, { Util.pad(0, 16, 0, 16) })
+	}, { Util.pad(0, 11, 0, 11) })
 
 	local headerRow = Util.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
@@ -2068,7 +2071,7 @@ function ContainerMethods:CreateSection(config)
 		AutomaticSize = Enum.AutomaticSize.X,
 		Text = section.Name,
 		Font = FONT.Bold,
-		TextSize = 14,
+		TextSize = 12.5,
 		TextColor3 = theme.Text,
 		LayoutOrder = 2,
 		ZIndex = LAYER.Content + 5,
@@ -2315,7 +2318,7 @@ function NexoUI.NewComponent(container, config, opts)
 		LayoutOrder = tonumber(config.Order) or (#container.Children + 1),
 		ZIndex = LAYER.Content + 5,
 		Parent = container.Content,
-	}, { Util.corner(12), Util.pad(11, 14, 11, 14), Util.minSize(0, 42) })
+	}, { Util.corner(10), Util.pad(7, 10, 7, 10), Util.minSize(0, 32) })
 	local stroke = Util.stroke(theme.Border, 0.92, 1)
 	stroke.Parent = frame
 
@@ -6798,5 +6801,1359 @@ end
 function Window:OpenCommandPalette() return NexoUI:OpenCommandPalette() end
 function Window:CreateRestorePoint(name) return NexoUI:CreateRestorePoint(name) end
 function Window:Restore(name) return NexoUI:Restore(name) end
+
+-- =====================================================================
+--  30. NEXO UI 2.1  -  COMPACT SHELL, COLOUR ENGINE, UNIFIED MOTION
+--  Everything here layers on top of the core above. No core feature is
+--  removed: every public function keeps its old name and signature.
+-- =====================================================================
+do
+	local Motion = {
+		Fast  = 0.11,
+		Base  = 0.17,
+		Slow  = 0.24,
+		Style = Enum.EasingStyle.Quart,
+		Dir   = Enum.EasingDirection.Out,
+	}
+	NexoUI.Motion = Motion
+	NexoUI.Version = "2.1.0"
+	NexoUI.Locked = false
+
+	local function tw(inst, dur, goal, style)
+		return Util.tween(inst, dur or Motion.Base, goal, style or Motion.Style, Motion.Dir)
+	end
+	NexoUI.Motion.Tween = tw
+
+	local WHITE = Color3.new(1, 1, 1)
+	local BLACK = Color3.new(0, 0, 0)
+	local RED   = Color3.fromRGB(255, 48, 64)
+
+	local function mix(a, b, t)
+		return Color3.new(a.R + (b.R - a.R) * t, a.G + (b.G - a.G) * t, a.B + (b.B - a.B) * t)
+	end
+	local function shade(c, t) return mix(c, BLACK, t) end
+	local function tint(c, t) return mix(c, WHITE, t) end
+
+	local function toColor(v)
+		if typeof(v) == "Color3" then return v end
+		if typeof(v) == "string" then
+			local hex = v:gsub("#", "")
+			if #hex == 6 or #hex == 3 then
+				local ok, c = pcall(Color3.fromHex, hex)
+				if ok then return c end
+			end
+			local preset = NexoUI.Themes[v]
+			if preset then return preset.Accent end
+		elseif typeof(v) == "table" and #v >= 3 then
+			local ok, c = pcall(Color3.fromRGB, v[1], v[2], v[3])
+			if ok then return c end
+		end
+		return nil
+	end
+	NexoUI.ToColor = toColor
+
+	-- ------------------------------------------------------------------
+	--  COLOUR CUSTOMISATION  (1 colour, or a 2 - 5 colour blend)
+	-- ------------------------------------------------------------------
+	local function collect(...)
+		local input = { ... }
+		if #input == 1 and typeof(input[1]) == "table" and typeof(input[1]) ~= "Color3" then
+			if input[1].Colors then
+				input = input[1].Colors
+			elseif #input[1] > 0 and typeof(input[1][1]) ~= "number" then
+				input = input[1]
+			end
+		end
+		local out = {}
+		for _, v in ipairs(input) do
+			local c = toColor(v)
+			if c then
+				table.insert(out, c)
+				if #out >= 5 then break end
+			end
+		end
+		return out
+	end
+
+	local function sequence(colors)
+		if #colors <= 1 then
+			local c = colors[1] or NexoUI.Theme.Accent
+			return Util.cseq({ 0, tint(c, 0.2) }, { 1, shade(c, 0.42) })
+		end
+		local points = {}
+		for i, c in ipairs(colors) do
+			table.insert(points, { (i - 1) / (#colors - 1), c })
+		end
+		return Util.cseq(table.unpack(points))
+	end
+	NexoUI.ColorSequenceFrom = sequence
+
+	-- gradients that should span the whole multi colour palette
+	local tracked = setmetatable({}, { __mode = "k" })
+	function NexoUI.TrackGradient(gradient)
+		if typeof(gradient) ~= "Instance" then return gradient end
+		tracked[gradient] = true
+		if NexoUI.Gradient then pcall(function() gradient.Color = NexoUI.Gradient end) end
+		return gradient
+	end
+
+	local coreApplyTheme = NexoUI.ApplyTheme
+	function NexoUI.ApplyTheme()
+		coreApplyTheme()
+		if not NexoUI.Gradient then return end
+		for gradient in pairs(tracked) do
+			if typeof(gradient) == "Instance" and gradient.Parent then
+				pcall(function() gradient.Color = NexoUI.Gradient end)
+			else
+				tracked[gradient] = nil
+			end
+		end
+	end
+
+	-- Library:SetColors(c1)  /  SetColors(c1, c2, c3)  /  SetColors({ ... })
+	function NexoUI:SetColors(...)
+		local colors = collect(...)
+		if #colors == 0 then
+			Util.warn("SetColors expects 1 to 5 colours (Color3, '#RRGGBB' or {r,g,b})")
+			return NexoUI.Theme
+		end
+		local c1 = colors[1]
+		local c2 = colors[2] or tint(c1, 0.28)
+		local last = colors[#colors]
+		local palette = {
+			Name          = "Custom",
+			Background    = shade(c1, 0.955),
+			BackgroundAlt = shade(c1, 0.925),
+			Panel         = shade(c1, 0.9),
+			PanelAlt      = shade(c1, 0.85),
+			Field         = shade(c1, 0.915),
+			Border        = c1,
+			Accent        = c1,
+			AccentLight   = tint(c1, 0.22),
+			AccentDark    = shade(last, 0.32),
+			Text          = tint(c1, 0.93),
+			SubText       = tint(shade(c1, 0.1), 0.7),
+			MutedText     = mix(tint(c1, 0.45), Color3.fromRGB(150, 150, 150), 0.6),
+			Button        = shade(c1, 0.885),
+			ButtonHover   = shade(c1, 0.78),
+			Toggle        = shade(c1, 0.9),
+			ToggleOn      = c1,
+			Knob          = tint(c1, 0.95),
+			KnobOff       = shade(tint(c1, 0.35), 0.5),
+			Slider        = shade(c1, 0.83),
+			Tab           = shade(c1, 0.9),
+			TabActive     = shade(c2, 0.28),
+			Notification  = shade(c1, 0.94),
+			Info          = c2,
+			Shadow        = shade(c1, 0.22),
+		}
+		NexoUI.Colors = colors
+		NexoUI.Gradient = sequence(colors)
+		return NexoUI:SetTheme(palette)
+	end
+	NexoUI.SetPalette = NexoUI.SetColors
+
+	function NexoUI:SetAccent(color) return NexoUI:SetColors(color) end
+	function NexoUI:GetColors() return NexoUI.Colors or { NexoUI.Theme.Accent } end
+
+	function NexoUI:AddColorTheme(name, ...)
+		local current = Util.copy(NexoUI.Theme)
+		local built = NexoUI:SetColors(...)
+		local saved = Util.copy(built)
+		saved.Name = tostring(name)
+		NexoUI.Themes[tostring(name)] = saved
+		NexoUI:SetTheme(current)
+		return saved
+	end
+
+	-- Ready made colour panel: Window:CreateThemeTab()
+	function Window:CreateThemeTab(config)
+		config = typeof(config) == "table" and config or {}
+		local tab = self:CreateTab({ Name = config.Name or "Theme", Icon = config.Icon })
+		if not tab then return nil end
+		local section = tab:CreateSection({ Name = config.SectionName or "Interface colours" })
+		if not section then return tab end
+		local chosen = {}
+		local used = {}
+		local current = NexoUI:GetColors()
+		for i = 1, 5 do
+			chosen[i] = current[i] or (i == 1 and NexoUI.Theme.Accent or nil)
+			used[i] = current[i] ~= nil
+		end
+		used[1] = true
+		local function apply()
+			local list = {}
+			for i = 1, 5 do
+				if used[i] and chosen[i] then table.insert(list, chosen[i]) end
+			end
+			if #list > 0 then NexoUI:SetColors(list) end
+		end
+		for i = 1, 5 do
+			Util.safe(function()
+				section:CreateColorPicker({
+					Name = i == 1 and "Primary colour" or ("Colour " .. i),
+					Description = i == 1 and "Drives the whole interface" or "Part of the multi colour blend",
+					Default = chosen[i] or NexoUI.Theme.Accent,
+					Callback = function(color)
+						chosen[i] = color
+						if i == 1 then used[1] = true end
+						apply()
+					end,
+				})
+			end)
+			if i > 1 then
+				Util.safe(function()
+					section:CreateToggle({
+						Name = "Use colour " .. i,
+						Default = used[i] == true,
+						Callback = function(state)
+							used[i] = state and true or false
+							apply()
+						end,
+					})
+				end)
+			end
+		end
+		Util.safe(function()
+			section:CreateButton({ Name = "Apply colours", Callback = apply })
+		end)
+		return tab
+	end
+
+	-- ------------------------------------------------------------------
+	--  SCROLLBARS + BOUNDS
+	-- ------------------------------------------------------------------
+	local function polishScroll(frame)
+		if typeof(frame) ~= "Instance" or not frame:IsA("ScrollingFrame") then return end
+		pcall(function()
+			if frame.ScrollBarThickness > 0 then frame.ScrollBarThickness = 4 end
+			frame.ScrollBarImageTransparency = 0.3
+			frame.ScrollBarImageColor3 = NexoUI.Theme.Accent
+			frame.BorderSizePixel = 0
+			frame.ElasticBehavior = Enum.ElasticBehavior.Never
+			frame.ClipsDescendants = true
+			frame.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+		end)
+	end
+	NexoUI.PolishScroll = polishScroll
+
+	-- ------------------------------------------------------------------
+	--  ONE UNIFIED SHELL  (every layer fades / scales as a single unit)
+	-- ------------------------------------------------------------------
+	local function makeShell(gui)
+		local ok, group = pcall(Instance.new, "CanvasGroup")
+		if ok and group then
+			local built = pcall(function()
+				group.Name = "Shell"
+				group.BackgroundTransparency = 1
+				group.BorderSizePixel = 0
+				group.Size = UDim2.fromScale(1, 1)
+				group.GroupTransparency = 0
+				group.ZIndex = 1
+				group.Parent = gui
+			end)
+			if built then return group, true end
+			pcall(function() group:Destroy() end)
+		end
+		return Util.new("Frame", {
+			Name = "Shell",
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 1,
+			Parent = gui,
+		}), false
+	end
+
+	function Window:_Fade(alpha, duration)
+		if self.ShellGroup and self.Shell then
+			tw(self.Shell, duration, { GroupTransparency = alpha })
+		else
+			tw(self.Main, duration, { BackgroundTransparency = alpha >= 1 and 1 or (self.BackgroundAlpha or 0.22) })
+			if self.Root then self.Root.Visible = alpha < 1 end
+		end
+	end
+
+	function Window:Show()
+		if NexoUI.Locked then return self end
+		self.Visible = true
+		if self.Shell then self.Shell.Visible = true end
+		self.Root.Visible = true
+		self:_Refresh()
+		local target = self.Scale.Scale
+		self.Scale.Scale = target * 0.96
+		if self.ShellGroup then self.Shell.GroupTransparency = 1 end
+		self:_Fade(0, Motion.Base)
+		tw(self.Scale, Motion.Base, { Scale = target })
+		task.delay(Motion.Base + 0.05, function()
+			if self.Visible and self.Gui and self.Gui.Parent then self:_Refresh() end
+		end)
+		self:_SyncMini()
+		self.OnToggle:Fire(true)
+		return self
+	end
+
+	function Window:Hide()
+		self.Visible = false
+		local target = self.Scale.Scale
+		self:_Fade(1, Motion.Base)
+		tw(self.Scale, Motion.Base, { Scale = target * 0.96 })
+		task.delay(Motion.Base + 0.03, function()
+			if self.Visible or not self.Root then return end
+			if self.Shell then self.Shell.Visible = false end
+			self.Root.Visible = false
+			self.Scale.Scale = target
+			if self.ShellGroup then self.Shell.GroupTransparency = 0 end
+		end)
+		self:_SyncMini()
+		self.OnToggle:Fire(false)
+		return self
+	end
+
+	function Window:Toggle()
+		if NexoUI.Locked then return self end
+		if self.Visible then self:Hide() else self:Show() end
+		return self
+	end
+
+	function Window:SetTransparency(alpha)
+		self.BackgroundAlpha = math.clamp(tonumber(alpha) or 0.22, 0, 0.95)
+		if self.Main then self.Main.BackgroundTransparency = self.BackgroundAlpha end
+		if self.Sidebar then self.Sidebar.BackgroundTransparency = math.clamp(self.BackgroundAlpha + 0.32, 0, 0.96) end
+		if self.TopBar then self.TopBar.BackgroundTransparency = math.clamp(self.BackgroundAlpha + 0.3, 0, 0.96) end
+		return self
+	end
+
+	-- ------------------------------------------------------------------
+	--  LAYOUT: top tab bar + left section rail
+	-- ------------------------------------------------------------------
+	function Window:_ApplyLayoutMode()
+		local narrow = self.Narrow
+		local width = narrow and 56 or self.SidebarWidth
+		local top = self.TopBar and (self.TopBarHeight or 0) or 0
+		tw(self.Sidebar, Motion.Base, {
+			Position = UDim2.fromOffset(0, top),
+			Size = UDim2.new(0, width, 1, -top),
+		})
+		if not self.Minimized then
+			tw(self.Body, Motion.Base, {
+				Position = UDim2.fromOffset(width, top),
+				Size = UDim2.new(1, -width, 1, -top),
+			})
+		end
+		if self.BrandText then self.BrandText.Visible = not narrow end
+		if self.BrandSub then self.BrandSub.Visible = not narrow and self.Config.Subtitle ~= nil end
+		if self.NavCaption then self.NavCaption.Visible = not narrow end
+		for _, tab in ipairs(self.Tabs) do
+			if tab._SetCompact then
+				Util.safe(function() tab:_SetCompact(narrow and not self.TopBar) end)
+			end
+		end
+		for _, entry in ipairs(self.NavEntries or {}) do
+			if entry.Label then entry.Label.Visible = not narrow end
+		end
+		for _, row in ipairs(self.ColumnRows) do
+			if row and row.Parent then NexoUI.LayoutColumns(row, narrow) end
+		end
+	end
+
+	local function refreshNav(win)
+		if not win.NavEntries then return end
+		local order = 0
+		for _, entry in ipairs(win.NavEntries) do
+			if entry.Button and entry.Button.Parent then
+				local alive = entry.Section and entry.Section.Frame and entry.Section.Frame.Parent ~= nil
+				local on = alive and entry.Tab == win.ActiveTab
+				entry.Button.Visible = on and true or false
+				if on then
+					order = order + 1
+					entry.Button.LayoutOrder = order
+				end
+			end
+		end
+	end
+
+	local function addNavEntry(win, tab, section)
+		if not win or not win.SectionNav or not tab or not section then return end
+		local theme = NexoUI.Theme
+		local button = Util.new("TextButton", {
+			Name = "Nav",
+			Text = "",
+			AutoButtonColor = false,
+			Size = UDim2.new(1, 0, 0, 24),
+			BackgroundColor3 = theme.Tab,
+			BackgroundTransparency = 1,
+			Visible = win.ActiveTab == tab,
+			LayoutOrder = #win.NavEntries + 1,
+			ZIndex = LAYER.Content + 4,
+			Parent = win.SectionNav,
+		}, { Util.corner(8) })
+		local dot = Util.new("Frame", {
+			Name = "Dot",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 8, 0.5, 0),
+			Size = UDim2.fromOffset(4, 4),
+			BackgroundColor3 = theme.Accent,
+			BackgroundTransparency = 0.3,
+			ZIndex = LAYER.Content + 5,
+			Parent = button,
+		}, { Util.corner(999) })
+		local label = Util.label({
+			Name = "Label",
+			Position = UDim2.fromOffset(18, 0),
+			Size = UDim2.new(1, -24, 1, 0),
+			Text = tostring(section.Name or "Section"),
+			Font = FONT.Medium,
+			TextSize = 11.5,
+			TextColor3 = theme.SubText,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = LAYER.Content + 5,
+			Parent = button,
+		})
+		local entry = { Button = button, Label = label, Dot = dot, Tab = tab, Section = section }
+		table.insert(win.NavEntries, entry)
+
+		win.Maid:Give(button.MouseEnter:Connect(function()
+			tw(button, Motion.Fast, { BackgroundTransparency = 0.86 })
+			tw(label, Motion.Fast, { TextColor3 = NexoUI.Theme.Text })
+		end))
+		win.Maid:Give(button.MouseLeave:Connect(function()
+			tw(button, Motion.Fast, { BackgroundTransparency = 1 })
+			tw(label, Motion.Fast, { TextColor3 = NexoUI.Theme.SubText })
+		end))
+		win.Maid:Give(button.Activated:Connect(function()
+			win:SelectTab(tab)
+			local page, frame = tab.Page, section.Frame
+			if page and frame and frame.Parent then
+				local offset = frame.AbsolutePosition.Y - page.AbsolutePosition.Y + page.CanvasPosition.Y - 6
+				tw(page, Motion.Base, { CanvasPosition = Vector2.new(0, math.max(offset, 0)) })
+			end
+			tw(dot, Motion.Fast, { Size = UDim2.fromOffset(6, 6), BackgroundTransparency = 0 })
+			task.delay(Motion.Fast, function()
+				if dot.Parent then tw(dot, Motion.Fast, { Size = UDim2.fromOffset(4, 4), BackgroundTransparency = 0.3 }) end
+			end)
+		end))
+		win.Maid:Give(Util.onTheme(function(t)
+			if not button.Parent then return end
+			button.BackgroundColor3 = t.Tab
+			label.TextColor3 = t.SubText
+			dot.BackgroundColor3 = t.Accent
+		end))
+		refreshNav(win)
+		return entry
+	end
+
+	local function buildTopBar(win)
+		local theme = NexoUI.Theme
+		win.TopBarHeight = 30
+		local bar = Util.new("Frame", {
+			Name = "TopBar",
+			Size = UDim2.new(1, 0, 0, win.TopBarHeight),
+			BackgroundColor3 = theme.Panel,
+			BackgroundTransparency = math.clamp((win.BackgroundAlpha or 0.22) + 0.3, 0, 0.96),
+			ClipsDescendants = true,
+			Active = true,
+			ZIndex = LAYER.Header + 3,
+			Parent = win.Main,
+		})
+		Util.new("Frame", {
+			Name = "Line",
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.fromScale(0, 1),
+			Size = UDim2.new(1, 0, 0, 1),
+			BackgroundColor3 = theme.Border,
+			BackgroundTransparency = 0.82,
+			ZIndex = LAYER.Header + 5,
+			Parent = bar,
+		})
+		win.TopBar = bar
+		win:_BindDrag(bar)
+
+		-- the old vertical rail becomes the horizontal tab strip
+		local rail = win.TabList
+		if rail then
+			rail.Parent = bar
+			rail.Position = UDim2.fromOffset(0, 0)
+			rail.Size = UDim2.fromScale(1, 1)
+			rail.ScrollingDirection = Enum.ScrollingDirection.X
+			rail.AutomaticCanvasSize = Enum.AutomaticSize.X
+			rail.CanvasSize = UDim2.new()
+			rail.ScrollBarThickness = 0
+			rail.ClipsDescendants = true
+			rail.ZIndex = LAYER.Header + 4
+			local list = rail:FindFirstChildOfClass("UIListLayout")
+			if list then
+				list.FillDirection = Enum.FillDirection.Horizontal
+				list.VerticalAlignment = Enum.VerticalAlignment.Center
+				list.Padding = UDim.new(0, 4)
+			end
+			local pad = rail:FindFirstChildOfClass("UIPadding")
+			if pad then
+				pad.PaddingTop = UDim.new(0, 0)
+				pad.PaddingBottom = UDim.new(0, 0)
+				pad.PaddingLeft = UDim.new(0, 6)
+				pad.PaddingRight = UDim.new(0, 6)
+			end
+		end
+
+		-- the left column keeps the categories / sections
+		win.NavCaption = Util.label({
+			Name = "NavCaption",
+			Position = UDim2.fromOffset(10, 56),
+			Size = UDim2.new(1, -20, 0, 12),
+			Text = "SECTIONS",
+			Font = FONT.Bold,
+			TextSize = 9.5,
+			TextColor3 = theme.MutedText,
+			ZIndex = LAYER.Content + 3,
+			Parent = win.Sidebar,
+		})
+		win.SectionNav = Util.new("ScrollingFrame", {
+			Name = "SectionNav",
+			Position = UDim2.fromOffset(0, 70),
+			Size = UDim2.new(1, 0, 1, -94),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 4,
+			ScrollBarImageColor3 = theme.Accent,
+			ScrollBarImageTransparency = 0.35,
+			CanvasSize = UDim2.new(),
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			ElasticBehavior = Enum.ElasticBehavior.Never,
+			ScrollingDirection = Enum.ScrollingDirection.Y,
+			ClipsDescendants = true,
+			ZIndex = LAYER.Content + 3,
+			Parent = win.Sidebar,
+		}, { Util.list(3), Util.pad(2, 8, 8, 8) })
+		polishScroll(win.SectionNav)
+		win.NavEntries = {}
+		win.Maid:Give(win.OnTabChanged:Connect(function() refreshNav(win) end))
+		win.Maid:Give(Util.onTheme(function(t)
+			if not bar.Parent then return end
+			bar.BackgroundColor3 = t.Panel
+			if win.NavCaption then win.NavCaption.TextColor3 = t.MutedText end
+			if win.SectionNav then win.SectionNav.ScrollBarImageColor3 = t.Accent end
+		end))
+	end
+
+	-- ------------------------------------------------------------------
+	--  MINIMISE  (header always stays painted - never a black box)
+	-- ------------------------------------------------------------------
+	function Window:Minimize(state)
+		if state == nil then state = not self.Minimized end
+		self.Minimized = state and true or false
+		local small = self.Minimized
+		local width = self.Narrow and 56 or self.SidebarWidth
+		local top = self.TopBar and (self.TopBarHeight or 0) or 0
+
+		-- the shell, the body and the header must always stay visible
+		self.Main.Visible = true
+		self.Main.BackgroundTransparency = self.BackgroundAlpha or 0.22
+		self.Body.Visible = true
+		self.Header.Visible = true
+		self.Sidebar.Visible = not small
+		self.Pages.Visible = not small
+		if self.TopBar then self.TopBar.Visible = not small end
+		if self.SubBarHolder then self.SubBarHolder.Visible = not small end
+		if self.ResizeGrip then self.ResizeGrip.Visible = not small end
+
+		if small then
+			self.Body.Position = UDim2.fromOffset(0, 0)
+			self.Body.Size = UDim2.new(1, 0, 1, 0)
+		else
+			self.Body.Position = UDim2.fromOffset(width, top)
+			self.Body.Size = UDim2.new(1, -width, 1, -top)
+		end
+
+		local height = small and self.HeaderHeight or nil
+		self:_Refresh()
+		if height then
+			tw(self.Root, Motion.Base, { Size = UDim2.fromOffset(self.BaseSize.X, height) })
+		end
+		if self.MinimizeIcon then
+			tw(self.MinimizeIcon, Motion.Fast, { Rotation = small and 180 or 0 })
+		end
+		return self
+	end
+
+	-- ------------------------------------------------------------------
+	--  MINI BUTTON: red orb, white laser ring, instant X toggle
+	-- ------------------------------------------------------------------
+	function Window:_SyncMini(instant)
+		local parts = self.MiniParts
+		if not parts or not parts.Root or not parts.Root.Parent then return end
+		local open = self.Visible and true or false
+		local dur = instant and 0 or Motion.Fast
+		for _, bar in ipairs(parts.XBars) do
+			tw(bar, dur, { BackgroundTransparency = open and 0 or 1, Rotation = bar:GetAttribute("Base") + (open and 0 or 45) })
+		end
+		if parts.Letter then tw(parts.Letter, dur, { TextTransparency = open and 1 or 0 }) end
+		if parts.Ring then tw(parts.Ring, dur, { Transparency = open and 0.8 or 0.32 }) end
+		if parts.Dot then tw(parts.Dot, dur, { BackgroundTransparency = open and 0.75 or 0 }) end
+		if parts.Trail then tw(parts.Trail, dur, { BackgroundTransparency = open and 0.9 or 0.45 }) end
+	end
+
+	function Window:_BuildMiniButton()
+		local vp = Camera.ViewportSize
+		local size = 38
+		local mini = Util.new("TextButton", {
+			Name = "Mini",
+			Text = "",
+			AutoButtonColor = false,
+			Position = UDim2.fromOffset(16, math.max(16, math.floor(vp.Y / 2) - 19)),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundColor3 = Color3.fromRGB(150, 8, 22),
+			BackgroundTransparency = 0.08,
+			ClipsDescendants = false,
+			ZIndex = LAYER.Toast + 40,
+			Parent = self.Gui,
+		}, { Util.corner(999) })
+		local miniGrad = Util.gradient(Util.cseq(
+			{ 0, Color3.fromRGB(255, 74, 92) }, { 1, Color3.fromRGB(138, 5, 20) }
+		), 135)
+		miniGrad.Parent = mini
+		local miniStroke = Util.stroke(WHITE, 0.66, 1.2)
+		miniStroke.Parent = mini
+
+		-- white "laser" ring + orbiting spark
+		local ringFrame = Util.new("Frame", {
+			Name = "LaserRing",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(size - 12, size - 12),
+			BackgroundTransparency = 1,
+			ZIndex = LAYER.Toast + 41,
+			Parent = mini,
+		}, { Util.corner(999) })
+		local ring = Util.stroke(WHITE, 0.32, 1.1)
+		ring.Parent = ringFrame
+
+		local orbit = Util.new("Frame", {
+			Name = "Orbit",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = LAYER.Toast + 42,
+			Parent = ringFrame,
+		})
+		local dot = Util.new("Frame", {
+			Name = "Spark",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0),
+			Size = UDim2.fromOffset(5, 5),
+			BackgroundColor3 = WHITE,
+			ZIndex = LAYER.Toast + 43,
+			Parent = orbit,
+		}, { Util.corner(999) })
+		local trailOrbit = Util.new("Frame", {
+			Name = "TrailOrbit",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Rotation = -34,
+			ZIndex = LAYER.Toast + 42,
+			Parent = ringFrame,
+		})
+		local trail = Util.new("Frame", {
+			Name = "Trail",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0),
+			Size = UDim2.fromOffset(3, 3),
+			BackgroundColor3 = WHITE,
+			BackgroundTransparency = 0.45,
+			ZIndex = LAYER.Toast + 43,
+			Parent = trailOrbit,
+		}, { Util.corner(999) })
+
+		local letter = Util.label({
+			Name = "Letter",
+			Size = UDim2.fromScale(1, 1),
+			Text = self.Name:sub(1, 1):upper(),
+			Font = FONT.Black,
+			TextSize = 13,
+			TextColor3 = WHITE,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			ZIndex = LAYER.Toast + 44,
+			Parent = mini,
+		})
+
+		-- white X shown while the window is open
+		local xBars = {}
+		for i = 1, 2 do
+			local base = i == 1 and 45 or -45
+			local bar = Util.new("Frame", {
+				Name = "X" .. i,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(13, 2),
+				Rotation = base,
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 1,
+				ZIndex = LAYER.Toast + 45,
+				Parent = mini,
+			}, { Util.corner(999) })
+			bar:SetAttribute("Base", base)
+			table.insert(xBars, bar)
+		end
+
+		-- remove badge (unchanged behaviour: destroys the interface)
+		local kill = Util.new("TextButton", {
+			Name = "Remove",
+			Text = "",
+			AutoButtonColor = false,
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 1, 0, -1),
+			Size = UDim2.fromOffset(14, 14),
+			BackgroundColor3 = Color3.fromRGB(255, 60, 76),
+			ZIndex = LAYER.Toast + 46,
+			Parent = mini,
+		}, { Util.corner(999) })
+		Util.stroke(WHITE, 0.55, 1).Parent = kill
+		Util.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(7, 1.6),
+			BackgroundColor3 = WHITE,
+			ZIndex = LAYER.Toast + 47,
+			Parent = kill,
+		}, { Util.corner(999) })
+
+		self.Mini = mini
+		self.MiniParts = {
+			Root = mini, Ring = ring, Dot = dot, Trail = trail,
+			Letter = letter, XBars = xBars, Kill = kill,
+		}
+
+		-- laser spin
+		self.Maid:Give(RunService.RenderStepped:Connect(function(dt)
+			if not orbit.Parent then return end
+			local step = (dt * 150) % 360
+			orbit.Rotation = (orbit.Rotation + step) % 360
+			trailOrbit.Rotation = (orbit.Rotation - 34) % 360
+		end))
+
+		self.Maid:Give(Util.onTheme(function(t)
+			if not mini.Parent then return end
+			kill.BackgroundColor3 = t.Error
+		end))
+
+		-- drag vs click
+		local dragging, moved, startInput, startPos = false, false, nil, nil
+		self.Maid:Give(mini.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging, moved = true, false
+				startInput = input.Position
+				startPos = mini.Position
+				tw(mini, 0.07, { Size = UDim2.fromOffset(size - 4, size - 4) })
+			end
+		end))
+		self.Maid:Give(UserInputService.InputChanged:Connect(function(input)
+			if not dragging or not mini.Parent then return end
+			if input.UserInputType == Enum.UserInputType.MouseMovement
+				or input.UserInputType == Enum.UserInputType.Touch then
+				local delta = input.Position - startInput
+				if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then moved = true end
+				local v = Camera.ViewportSize
+				mini.Position = UDim2.fromOffset(
+					math.clamp(startPos.X.Offset + delta.X, 6, math.max(6, v.X - size - 6)),
+					math.clamp(startPos.Y.Offset + delta.Y, 6, math.max(6, v.Y - size - 6))
+				)
+			end
+		end))
+		self.Maid:Give(UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = false
+				if mini.Parent then tw(mini, 0.09, { Size = UDim2.fromOffset(size, size) }) end
+			end
+		end))
+		self.Maid:Give(mini.Activated:Connect(function()
+			if moved then moved = false return end
+			if NexoUI.Locked then return end
+			self:Toggle()
+		end))
+		self.Maid:Give(mini.MouseEnter:Connect(function()
+			tw(mini, Motion.Fast, { BackgroundTransparency = 0 })
+			tw(miniStroke, Motion.Fast, { Transparency = 0.35 })
+		end))
+		self.Maid:Give(mini.MouseLeave:Connect(function()
+			tw(mini, Motion.Fast, { BackgroundTransparency = 0.08 })
+			tw(miniStroke, Motion.Fast, { Transparency = 0.66 })
+		end))
+		self.Maid:Give(kill.Activated:Connect(function()
+			tw(mini, Motion.Fast, { Size = UDim2.fromOffset(6, 6) })
+			task.delay(Motion.Fast + 0.03, function() self:Destroy() end)
+		end))
+
+		self:_SyncMini(true)
+		return mini
+	end
+
+	-- ------------------------------------------------------------------
+	--  NOTIFICATIONS: transparent glass, red + white only
+	-- ------------------------------------------------------------------
+	function Window:Notify(config)
+		if typeof(config) ~= "table" then config = { Title = tostring(config or "") } end
+		local duration = tonumber(config.Duration) or 5
+		local maxVisible = tonumber(config.Max) or 4
+		while #self.Notifications >= maxVisible do
+			local oldest = table.remove(self.Notifications, 1)
+			if oldest and oldest.Close then oldest:Close() end
+		end
+
+		local holder = Util.new("Frame", {
+			Name = "Toast",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			LayoutOrder = math.floor(tick() * 100) % 2147483647,
+			ZIndex = LAYER.Toast + 1,
+			Parent = self.ToastLayer,
+		})
+		local card = Util.new("Frame", {
+			Name = "Card",
+			Position = UDim2.fromScale(1.1, 0),
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = Color3.fromRGB(16, 3, 6),
+			BackgroundTransparency = 0.35,
+			ZIndex = LAYER.Toast + 2,
+			Parent = holder,
+		}, { Util.corner(10), Util.pad(9, 11, 9, 12) })
+		Util.gradient(Util.cseq(
+			{ 0, Color3.fromRGB(60, 6, 12) }, { 1, Color3.fromRGB(12, 2, 4) }
+		), 140).Parent = card
+		Util.stroke(RED, 0.45, 1).Parent = card
+		Util.new("Frame", {
+			Name = "Accent",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, -7, 0.5, 0),
+			Size = UDim2.new(0, 2, 1, -14),
+			BackgroundColor3 = RED,
+			BackgroundTransparency = 0.1,
+			ZIndex = LAYER.Toast + 3,
+			Parent = card,
+		}, { Util.corner(999) })
+
+		local iconId = Util.image(config.Icon or config.Image)
+		local inset = 0
+		if iconId ~= "" then
+			local img = Util.imageObject({ Image = iconId, Size = config.IconSize or 18, Color = config.IconColor or WHITE }, 18)
+			img.AnchorPoint = Vector2.new(0, 0)
+			img.Position = UDim2.fromOffset(0, 1)
+			img.ZIndex = LAYER.Toast + 4
+			img.Parent = card
+			inset = 26
+		end
+
+		local textCol = Util.new("Frame", {
+			Name = "Text",
+			Position = UDim2.fromOffset(inset, 0),
+			Size = UDim2.new(1, -inset - 18, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			ZIndex = LAYER.Toast + 4,
+			Parent = card,
+		}, { Util.list(2) })
+		Util.label({
+			Size = UDim2.new(1, 0, 0, 15),
+			Text = tostring(config.Title or config.Name or "Notification"),
+			Font = FONT.Bold,
+			TextSize = 12,
+			TextColor3 = WHITE,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = LAYER.Toast + 5,
+			Parent = textCol,
+		})
+		local body = config.Content or config.Description or config.Text
+		if body then
+			Util.label({
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				Text = tostring(body),
+				Font = FONT.Regular,
+				TextSize = 11,
+				TextColor3 = WHITE,
+				TextTransparency = 0.28,
+				TextWrapped = true,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				LineHeight = 1.22,
+				ZIndex = LAYER.Toast + 5,
+				Parent = textCol,
+			})
+		end
+
+		local closeBtn = Util.new("TextButton", {
+			Name = "Close",
+			Text = "",
+			AutoButtonColor = false,
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.fromScale(1, 0),
+			Size = UDim2.fromOffset(14, 14),
+			BackgroundTransparency = 1,
+			ZIndex = LAYER.Toast + 5,
+			Parent = card,
+		}, { Util.corner(999) })
+		for i = 1, 2 do
+			Util.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(9, 1.6),
+				Rotation = i == 1 and 45 or -45,
+				BackgroundColor3 = WHITE,
+				BackgroundTransparency = 0.25,
+				ZIndex = LAYER.Toast + 6,
+				Parent = closeBtn,
+			}, { Util.corner(999) })
+		end
+
+		local bar = Util.new("Frame", {
+			Name = "Timer",
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, 0, 1, 7),
+			Size = UDim2.new(1, 0, 0, 2),
+			BackgroundColor3 = RED,
+			BackgroundTransparency = 0.15,
+			ZIndex = LAYER.Toast + 5,
+			Parent = card,
+		}, { Util.corner(999) })
+
+		local window = self
+		local toast = { Frame = holder, Card = card, Type = tostring(config.Type or "Info") }
+		local closed = false
+		function toast:Close()
+			if closed then return end
+			closed = true
+			tw(card, Motion.Base, { Position = UDim2.fromScale(1.15, 0), BackgroundTransparency = 1 })
+			task.delay(Motion.Base + 0.04, function() pcall(function() holder:Destroy() end) end)
+			for i, n in ipairs(window.Notifications) do
+				if n == toast then table.remove(window.Notifications, i) break end
+			end
+			Util.safe(config.OnClose)
+		end
+
+		closeBtn.Activated:Connect(function() toast:Close() end)
+		if typeof(config.Callback) == "function" then
+			local hit = Util.new("TextButton", {
+				Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1), ZIndex = LAYER.Toast + 3, Parent = card,
+			})
+			hit.Activated:Connect(function()
+				Util.safe(config.Callback, toast)
+				toast:Close()
+			end)
+		end
+
+		tw(card, Motion.Slow, { Position = UDim2.fromScale(0, 0) })
+		if duration > 0 then
+			Util.tween(bar, duration, { Size = UDim2.new(0, 0, 0, 2) }, Enum.EasingStyle.Linear)
+			task.delay(duration + 0.05, function() toast:Close() end)
+		else
+			bar.Visible = false
+		end
+
+		table.insert(self.Notifications, toast)
+		return toast
+	end
+
+	-- ------------------------------------------------------------------
+	--  KEY SYSTEM: modal, fully blocking, rounded
+	-- ------------------------------------------------------------------
+	function NexoUI:KeySystem(config)
+		config = typeof(config) == "table" and config or {}
+		local keys = {}
+		for _, key in ipairs(config.Keys or {}) do table.insert(keys, tostring(key)) end
+		if config.Key then table.insert(keys, tostring(config.Key)) end
+		local fileName = tostring(config.FileName or "NexoUI_key.txt")
+		local saveKey = config.SaveKey ~= false
+		local attemptsLeft = tonumber(config.Attempts) or 5
+		local unlocks = config.Unlocks or "default"
+
+		local function validate(input)
+			input = tostring(input or "")
+			if input == "" then return false end
+			if typeof(config.Validate) == "function" then
+				local ok, res = pcall(config.Validate, input)
+				if ok and res then return true end
+				if ok then return false end
+			end
+			for _, key in ipairs(keys) do
+				if input == key then return true end
+			end
+			return false
+		end
+
+		-- freeze every existing interface while the gate is up
+		NexoUI.Locked = true
+		local frozen = {}
+		for _, win in ipairs(NexoUI.Windows) do
+			frozen[win] = win.Visible
+			if win.Shell then win.Shell.Visible = false end
+			if win.Root then win.Root.Visible = false end
+			if win.Mini then win.Mini.Visible = false end
+		end
+		local function thaw()
+			NexoUI.Locked = false
+			for _, win in ipairs(NexoUI.Windows) do
+				local wasVisible = frozen[win]
+				if win.Mini then win.Mini.Visible = true end
+				if wasVisible ~= false then
+					if win.Shell then win.Shell.Visible = true end
+					if win.Root then win.Root.Visible = true end
+					Util.safe(function() win:Show() end)
+				else
+					Util.safe(function() win:_SyncMini(true) end)
+				end
+			end
+		end
+
+		local theme = NexoUI.Theme
+		local resolved, result = false, false
+		local gui = NexoUI.StandaloneGui("NexoKeySystem", 2000000)
+
+		-- modal blocker: swallows every click and keystroke behind the panel
+		local blocker = Util.new("TextButton", {
+			Name = "Blocker",
+			Text = "",
+			AutoButtonColor = false,
+			Modal = true,
+			Active = true,
+			Selectable = false,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = BLACK,
+			BackgroundTransparency = 1,
+			ZIndex = 1,
+			Parent = gui,
+		})
+		tw(blocker, Motion.Slow, { BackgroundTransparency = 0.42 })
+
+		local shell = Util.new("Frame", {
+			Name = "KeyShell",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(320, 0),
+			BackgroundTransparency = 1,
+			ZIndex = 2,
+			Parent = gui,
+		})
+		local scale = Util.new("UIScale", { Scale = 0.94, Parent = shell })
+
+		local panel = Util.new("Frame", {
+			Name = "Panel",
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = shade(theme.Background, 0.1),
+			BackgroundTransparency = 0.14,
+			ZIndex = 3,
+			Parent = shell,
+		}, { Util.corner(16), Util.pad(16, 16, 16, 16), Util.list(9) })
+		Util.stroke(theme.Accent, 0.5, 1.2).Parent = panel
+		Util.gradient(Util.cseq(
+			{ 0, theme.PanelAlt }, { 0.55, theme.Background }, { 1, theme.BackgroundAlt }
+		), 155).Parent = panel
+		shell.Size = UDim2.fromOffset(math.min(320, math.max(240, Camera.ViewportSize.X - 40)), 0)
+		shell.AutomaticSize = Enum.AutomaticSize.Y
+
+		local logoId = Util.image(config.Logo or config.Image or config.Icon)
+		if logoId ~= "" then
+			local img = Util.imageObject({ Image = logoId, Size = config.LogoSize or 44, Corner = 12, LayoutOrder = 1 }, 44)
+			img.ZIndex = 4
+			img.Parent = panel
+		end
+		Util.label({
+			Size = UDim2.new(1, 0, 0, 20),
+			Text = tostring(config.Title or "NEXO  ACCESS"),
+			Font = FONT.Black,
+			TextSize = 16,
+			TextColor3 = theme.Text,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			LayoutOrder = 2,
+			ZIndex = 4,
+			Parent = panel,
+		})
+		Util.label({
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			Text = tostring(config.Note or config.Subtitle or "Enter your access key to continue."),
+			Font = FONT.Regular,
+			TextSize = 11.5,
+			TextColor3 = theme.SubText,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			LineHeight = 1.25,
+			LayoutOrder = 3,
+			ZIndex = 4,
+			Parent = panel,
+		})
+
+		local box = Util.new("TextBox", {
+			Name = "KeyInput",
+			Size = UDim2.new(1, 0, 0, 34),
+			BackgroundColor3 = theme.Field,
+			BackgroundTransparency = 0.15,
+			Text = "",
+			PlaceholderText = tostring(config.Placeholder or "Paste key here"),
+			PlaceholderColor3 = theme.MutedText,
+			TextColor3 = theme.Text,
+			Font = FONT.Medium,
+			TextSize = 12.5,
+			ClearTextOnFocus = false,
+			LayoutOrder = 4,
+			ZIndex = 4,
+			Parent = panel,
+		}, { Util.corner(10), Util.pad(0, 12, 0, 12) })
+		local boxStroke = Util.stroke(theme.Border, 0.6, 1.1)
+		boxStroke.Parent = box
+
+		local status = Util.label({
+			Size = UDim2.new(1, 0, 0, 14),
+			Text = "",
+			Font = FONT.Medium,
+			TextSize = 11,
+			TextColor3 = theme.Error,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			LayoutOrder = 5,
+			ZIndex = 4,
+			Parent = panel,
+		})
+
+		local row = Util.new("Frame", {
+			Size = UDim2.new(1, 0, 0, 32),
+			BackgroundTransparency = 1,
+			LayoutOrder = 6,
+			ZIndex = 4,
+			Parent = panel,
+		})
+		Util.list(7, Enum.FillDirection.Horizontal).Parent = row
+
+		local function makeButton(text, primary, order, width)
+			local button = Util.new("TextButton", {
+				Name = text,
+				Text = text,
+				AutoButtonColor = false,
+				Font = FONT.Bold,
+				TextSize = 12,
+				TextColor3 = theme.Text,
+				Size = UDim2.new(width, 0, 1, 0),
+				BackgroundColor3 = primary and theme.ToggleOn or theme.Button,
+				BackgroundTransparency = 0.05,
+				LayoutOrder = order,
+				ZIndex = 5,
+				Parent = row,
+			}, { Util.corner(10) })
+			Util.stroke(theme.Border, primary and 0.5 or 0.82, 1).Parent = button
+			button.MouseEnter:Connect(function()
+				tw(button, Motion.Fast, { BackgroundColor3 = primary and NexoUI.Theme.AccentLight or NexoUI.Theme.ButtonHover })
+			end)
+			button.MouseLeave:Connect(function()
+				tw(button, Motion.Fast, { BackgroundColor3 = primary and NexoUI.Theme.ToggleOn or NexoUI.Theme.Button })
+			end)
+			return button
+		end
+
+		local hasLink = config.GetKeyLink ~= nil
+		local getButton
+		if hasLink then
+			getButton = makeButton(tostring(config.GetKeyText or "Get key"), false, 1, 0.42)
+		end
+		local checkButton = makeButton(tostring(config.CheckText or "Unlock"), true, 2, hasLink and 0.56 or 1)
+
+		local footer = Util.label({
+			Size = UDim2.new(1, 0, 0, 13),
+			Text = "Attempts left: " .. tostring(attemptsLeft),
+			Font = FONT.Regular,
+			TextSize = 10.5,
+			TextColor3 = theme.MutedText,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			LayoutOrder = 7,
+			ZIndex = 4,
+			Parent = panel,
+		})
+
+		tw(scale, Motion.Slow, { Scale = 1 }, Enum.EasingStyle.Back)
+
+		local function finish(success)
+			if resolved then return end
+			resolved, result = true, success
+			if success then
+				for _, key in ipairs(nameList(unlocks)) do Access:UnlockKey(key, true) end
+				if saveKey and typeof(writefile) == "function" then
+					pcall(writefile, fileName, box.Text)
+				end
+				Util.safe(config.OnSuccess, box.Text)
+			else
+				Util.safe(config.OnFail)
+			end
+			Util.safe(config.Callback, success, box.Text)
+			tw(scale, Motion.Base, { Scale = 0.94 })
+			tw(panel, Motion.Base, { BackgroundTransparency = 1 })
+			tw(blocker, Motion.Base, { BackgroundTransparency = 1 })
+			task.delay(Motion.Base + 0.06, function()
+				pcall(function() gui:Destroy() end)
+			end)
+			if success then
+				thaw()
+			else
+				NexoUI.Locked = false
+				for _, win in ipairs(NexoUI.Windows) do
+					if win.Mini then win.Mini.Visible = true end
+				end
+			end
+			NexoUI.FireHook("KeySystemResolved", success)
+		end
+
+		local function submit()
+			if resolved then return end
+			if validate(box.Text) then
+				status.TextColor3 = NexoUI.Theme.Success
+				status.Text = "Key accepted"
+				tw(boxStroke, Motion.Fast, { Color = NexoUI.Theme.Success, Transparency = 0.2 })
+				task.delay(0.3, function() finish(true) end)
+			else
+				attemptsLeft = attemptsLeft - 1
+				status.TextColor3 = NexoUI.Theme.Error
+				status.Text = attemptsLeft > 0 and "Invalid key" or "Too many attempts"
+				footer.Text = "Attempts left: " .. tostring(math.max(attemptsLeft, 0))
+				tw(boxStroke, Motion.Fast, { Color = NexoUI.Theme.Error, Transparency = 0.15 })
+				local origin = shell.Position
+				Util.tween(shell, 0.05, { Position = origin + UDim2.fromOffset(8, 0) })
+				task.delay(0.05, function()
+					if shell.Parent then Util.tween(shell, 0.05, { Position = origin - UDim2.fromOffset(8, 0) }) end
+				end)
+				task.delay(0.1, function()
+					if shell.Parent then Util.tween(shell, 0.08, { Position = origin }) end
+				end)
+				if attemptsLeft <= 0 then task.delay(0.55, function() finish(false) end) end
+			end
+		end
+
+		checkButton.Activated:Connect(submit)
+		box.FocusLost:Connect(function(enter) if enter then submit() end end)
+		if getButton then
+			getButton.Activated:Connect(function()
+				local copied = NexoUI:Copy(tostring(config.GetKeyLink))
+				status.TextColor3 = copied and NexoUI.Theme.Success or NexoUI.Theme.Warning
+				status.Text = copied and "Link copied to clipboard" or tostring(config.GetKeyLink)
+				Util.safe(config.OnGetKey)
+			end)
+		end
+
+		if saveKey and typeof(readfile) == "function" then
+			local exists = true
+			if typeof(isfile) == "function" then
+				local ok, found = pcall(isfile, fileName)
+				exists = ok and found
+			end
+			if exists then
+				local ok, saved = pcall(readfile, fileName)
+				if ok and validate(saved) then
+					box.Text = saved
+					status.TextColor3 = NexoUI.Theme.Success
+					status.Text = "Saved key accepted"
+					task.delay(0.3, function() finish(true) end)
+				end
+			end
+		end
+
+		local handle = {
+			Gui = gui,
+			Panel = panel,
+			Submit = submit,
+			Close = function() finish(false) end,
+			IsResolved = function() return resolved end,
+			GetResult = function() return result end,
+		}
+		if config.Blocking == false then return handle end
+		while not resolved do task.wait(0.05) end
+		return result, handle
+	end
+
+	-- ------------------------------------------------------------------
+	--  WRAPPERS: tabs on top, sections on the left, unified shell
+	-- ------------------------------------------------------------------
+	local previousTab = Window.CreateTab
+	function Window:CreateTab(config)
+		local tab = previousTab(self, config)
+		if tab and tab.Page then polishScroll(tab.Page) end
+		if tab and tab.Button and self.TopBar then
+			Util.safe(function()
+				local isImage = tab.Icon and tab.Icon:IsA("ImageLabel")
+				local textStart = isImage and 24 or 18
+				local width = math.clamp(#tostring(tab.Name) * 7 + textStart + 12, 58, 170)
+				tab.Button.Size = UDim2.fromOffset(width, (self.TopBarHeight or 30) - 8)
+				if tab.Icon then
+					tab.Icon.AnchorPoint = Vector2.new(0, 0.5)
+					tab.Icon.Position = UDim2.new(0, isImage and 7 or 9, 0.5, 0)
+				end
+				if tab.Label then
+					tab.Label.Position = UDim2.fromOffset(textStart, 0)
+					tab.Label.Size = UDim2.new(1, -(textStart + 8), 1, 0)
+					tab.Label.TextSize = 11.5
+				end
+				tab._SetCompact = function() return tab end
+			end)
+		end
+		return tab
+	end
+
+	local previousSection = ContainerMethods.CreateSection
+	function ContainerMethods:CreateSection(config)
+		local section = previousSection(self, config)
+		local win = self.Window
+		if section and win and win.SectionNav then
+			Util.safe(function()
+				addNavEntry(win, section.Tab or self.Tab or win.ActiveTab, section)
+			end)
+		end
+		return section
+	end
+
+	local previousCreateWindow = NexoUI.CreateWindow
+	function NexoUI:CreateWindow(config)
+		if typeof(config) ~= "table" then config = {} end
+		local win = previousCreateWindow(self, config)
+		if not win then return win end
+
+		Util.safe(function()
+			-- 1. one container so every layer animates as a single unit
+			local shell, isGroup = makeShell(win.Gui)
+			win.Shell, win.ShellGroup = shell, isGroup
+			for _, name in ipairs({ "Root", "PopupLayer", "TooltipLayer", "DialogLayer", "ToastLayer" }) do
+				local part = win[name]
+				if part then part.Parent = shell end
+			end
+			if win.Mini then win.Mini.Parent = win.Gui end
+
+			-- 2. glass look and hard bounds
+			win:SetTransparency(win.BackgroundAlpha or 0.22)
+			win.Body.ClipsDescendants = true
+			win.Pages.ClipsDescendants = true
+			win.Sidebar.ClipsDescendants = true
+			win.Main.ClipsDescendants = true
+
+			-- 3. tabs on top, categories on the left
+			if config.TopTabs ~= false then buildTopBar(win) end
+
+			-- 4. scrollbars
+			for _, descendant in ipairs(win.Gui:GetDescendants()) do polishScroll(descendant) end
+
+			-- 5. one synchronised entrance
+			if isGroup then
+				shell.GroupTransparency = 1
+				tw(shell, Motion.Slow, { GroupTransparency = 0 })
+			end
+			win:_ApplyLayoutMode()
+			win:_Refresh()
+			win:_SyncMini(true)
+		end)
+
+		if config.Colors then Util.safe(function() NexoUI:SetColors(config.Colors) end) end
+		return win
+	end
+end
+
 
 return NexoUI
