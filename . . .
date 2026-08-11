@@ -1,8 +1,3 @@
---[[
-  Protected build. Do not edit.
-  The original source is encrypted below and verified at runtime;
-  any modification to the payload will stop the script from loading.
-]]
 local bxor,band,lshift,rshift=bit32.bxor,bit32.band,bit32.lshift,bit32.rshift
 local D={}
 D=D or {}
