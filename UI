@@ -1,0 +1,1657 @@
+--[[
+	NEXO HUB UI LIBRARY  (HOHO gen4 exact-mimic build)
+	--------------------------------------------------
+	Every color, size, position, font, corner radius, gradient keypoint and
+	animation in this file was read directly out of the live HOHO HUB gen4
+	ScreenGui running in Blox Fruits (CoreGui.Hоhо_gеn4) through the Roblox MCP
+	bridge. Values are copied 1:1 unless marked TUNABLE.
+
+	YOUR OWN ASSET IDS ARE KEPT (banner / logo / mini icon / socials / cards).
+
+	USAGE (GitHub):
+		local Nexo = loadstring(game:HttpGet(
+			"https://raw.githubusercontent.com/USER/REPO/main/NexoHub_Library.lua", true))()
+
+		local Win = Nexo:CreateWindow({
+			Title     = "WELCOME TO\n<font color=\"#f8042e\">BEST FREE</font>\nBLOX FRUIT",
+			Subtitle  = "Thanks for using our services.\nWe are commited to bring great quality.",
+			ToggleKey = Enum.KeyCode.RightShift,
+		})
+
+	NOTHING is created until you call the commands - no default tabs, no default
+	sections. Structure rule:  WINDOW > TAB > SECTION > CONTROLS
+]]
+
+local Players            = game:GetService("Players")
+local UserInputService   = game:GetService("UserInputService")
+local TweenService       = game:GetService("TweenService")
+local RunService         = game:GetService("RunService")
+local TextService        = game:GetService("TextService")
+local CoreGui            = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+--=====================================================================
+-- 1) ASSET IDS  (yours are kept exactly as you had them)
+--=====================================================================
+local IMAGES = {
+	-- ==== YOUR IDS - DO NOT CHANGE ====
+	Background = "107056911907270",
+	Logo       = "116677845668287",
+	Banner     = "132582095265277",
+	MiniIcon   = "134473690393403",
+	Discord    = "10367063073",
+	YouTube    = "4884068617",
+	Card1Icon  = "87628150067132",
+	Card2Icon  = "87628150067132",
+	Card3Icon  = "87628150067132",
+	TabIcon    = "87628150067132",
+	SearchIcon = "118685771787843",
+	BackIcon   = "72257591594286",
+	CloseIcon  = "",
+	NotifyIcon = "",
+
+	-- ==== STRUCTURAL IDS READ OUT OF THE LIVE HOHO UI ====
+	Pattern      = "2151741365",  -- tiled dot pattern, TOP_BAR + GRADIENT, IT 0.6
+	ToggleShape  = "16284242787", -- rounded square behind the mini icon
+	HoverGlow    = "16261022724", -- 9-slice glow used on hover (SliceCenter 205,197,828,828)
+	DeepSearch   = "72965444708833", -- icon inside the DEEP SEARCH pill
+	Overlay      = "5889550052",  -- full panel overlay gradient layer
+}
+
+local function asset(id)
+	id = tostring(id or "")
+	if id == "" then return "" end
+	if id:match("^rbxassetid://") or id:match("^http") or id:match("^rbxasset://") then return id end
+	return "rbxassetid://" .. id
+end
+
+--=====================================================================
+-- 2) THEME  (exact RGB values pulled from the live UI)
+--=====================================================================
+local THEME = {
+	Base        = Color3.fromRGB(24, 24, 24),   -- MAIN_UI / TOP_BAR / Transition
+	Panel       = Color3.fromRGB(20, 20, 20),   -- SearchBox, buttons  (T 0.5)
+	Section     = Color3.fromRGB(0, 0, 0),      -- Sections frame      (T 0.75)
+	Accent      = Color3.fromRGB(255, 51, 51),  -- active tab text, social icons
+	AccentDeep  = Color3.fromRGB(248, 4, 46),   -- #f8042e rich-text red, buttons
+	GradTop     = Color3.fromRGB(157, 2, 31),
+	GradMid     = Color3.fromRGB(47, 29, 32),
+	GradEnd     = Color3.fromRGB(24, 24, 24),
+	Stroke2     = Color3.fromRGB(76, 22, 32),
+	Stroke3     = Color3.fromRGB(28, 24, 25),
+	Text        = Color3.fromRGB(255, 255, 255),
+	StrokeRed   = Color3.fromRGB(253, 1, 12),
+	ScrollBar   = Color3.fromRGB(51, 51, 51),
+}
+
+local FONT = {
+	Regular  = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular),
+	Semi     = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.SemiBold),
+	Bold     = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+	Heavy    = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Heavy),
+	Bangers  = Font.new("rbxasset://fonts/families/Bangers.json", Enum.FontWeight.Regular),
+}
+
+--=====================================================================
+-- 3) ANIMATION TABLE  (single place to tune every animation)
+--=====================================================================
+local ANIM = {
+	Open        = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	Close       = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+	TabSlide    = TweenInfo.new(0.40, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	PageSlide   = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+	SectionIn   = TweenInfo.new(0.30, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+	Hover       = TweenInfo.new(0.18, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out),
+	Press       = TweenInfo.new(0.09, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out),
+	ToggleFlip  = TweenInfo.new(0.20, Enum.EasingStyle.Back,  Enum.EasingDirection.Out),
+	Slider      = TweenInfo.new(0.10, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out),
+	NotifyIn    = TweenInfo.new(0.40, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	NotifyOut   = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+	Transition  = TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	GradientSpin= 6,    -- seconds for one full 360 spin of the mini-icon gradient
+	RowStagger  = 0.035,-- delay between rows when a page builds in
+}
+
+-- geometry copied from the live UI
+local GEO = {
+	Aspect       = 1.504639983177185, -- UIAspectRatioConstraint on MAIN_UI
+	Corner       = UDim.new(0.075, 0), -- MAIN_UI + Sections corner
+	OpenSize     = UDim2.new(0.417, 40, 0.755, 40), -- TUNABLE: open panel box
+	ClosedSize   = UDim2.new(0.017, 40, 0.055, 40), -- exact live closed size
+	OpenPos      = UDim2.new(0.5, 0, 0.5, 0),
+	ClosedPos    = UDim2.new(0.5, 117, 0.5, -83),   -- exact live closed position
+	TogglePos    = UDim2.new(0.188201994, -2, 0.300049007, -1),
+	ToggleSize   = UDim2.new(0.037, 40, 0.075, 40),
+	TopBarH      = 0.170,
+	ColumnAspect = 4.251,  -- Tab1 / Tab2 column UIAspectRatioConstraint
+}
+
+--=====================================================================
+-- 4) SMALL HELPERS
+--=====================================================================
+local function New(class, props, children)
+	local inst = Instance.new(class)
+	for k, v in pairs(props or {}) do
+		if k ~= "Parent" then inst[k] = v end
+	end
+	for _, c in ipairs(children or {}) do c.Parent = inst end
+	if props and props.Parent then inst.Parent = props.Parent end
+	return inst
+end
+
+local function Corner(r)  return New("UICorner", { CornerRadius = r or GEO.Corner }) end
+local function Aspect(ratio, atype, axis)
+	return New("UIAspectRatioConstraint", {
+		AspectRatio = ratio,
+		AspectType  = atype or Enum.AspectType.FitWithinMaxSize,
+		DominantAxis= axis  or Enum.DominantAxis.Width,
+	})
+end
+local function VList(pad, halign, valign)
+	return New("UIListLayout", {
+		Padding = pad or UDim.new(0, 0),
+		FillDirection = Enum.FillDirection.Vertical,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = halign or Enum.HorizontalAlignment.Left,
+		VerticalAlignment   = valign or Enum.VerticalAlignment.Top,
+	})
+end
+local function HList(pad, halign, valign)
+	return New("UIListLayout", {
+		Padding = pad or UDim.new(0, 0),
+		FillDirection = Enum.FillDirection.Horizontal,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = halign or Enum.HorizontalAlignment.Center,
+		VerticalAlignment   = valign or Enum.VerticalAlignment.Center,
+	})
+end
+
+-- the exact panel gradient of the live UI (GRADIENT frame, Rot -90, T 0.9)
+local function PanelGradient()
+	return New("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, THEME.GradTop),
+			ColorSequenceKeypoint.new(0.47, THEME.GradMid),
+			ColorSequenceKeypoint.new(1.00, THEME.GradEnd),
+		}),
+		Transparency = NumberSequence.new(0.9),
+		Rotation = -90,
+	})
+end
+
+-- the exact 4-key stroke gradient used on the SearchBox stroke
+local function StrokeGradient(offsetY)
+	return New("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, THEME.GradTop),
+			ColorSequenceKeypoint.new(0.29, THEME.Stroke2),
+			ColorSequenceKeypoint.new(0.66, THEME.Stroke3),
+			ColorSequenceKeypoint.new(1.00, THEME.GradEnd),
+		}),
+		Rotation = -90,
+		Offset = Vector2.new(0, offsetY or 0),
+	})
+end
+
+local function Tween(inst, info, goal)
+	local t = TweenService:Create(inst, info, goal)
+	t:Play()
+	return t
+end
+
+-- hover glow exactly like the live "Hover" ImageLabel on Copy Invite
+local function HoverGlow(parent, color)
+	return New("ImageLabel", {
+		Name = "Hover",
+		Parent = parent,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(1.08, 1.45),
+		Image = asset(IMAGES.HoverGlow),
+		ImageColor3 = color or THEME.Accent,
+		ImageTransparency = 1,
+		ScaleType = Enum.ScaleType.Slice,
+		SliceCenter = Rect.new(205, 197, 828, 828),
+		ZIndex = 1,
+	})
+end
+
+local function BindHover(button, glow, extra)
+	button.MouseEnter:Connect(function()
+		if glow then Tween(glow, ANIM.Hover, { ImageTransparency = 0.35 }) end
+		if extra then extra(true) end
+	end)
+	button.MouseLeave:Connect(function()
+		if glow then Tween(glow, ANIM.Hover, { ImageTransparency = 1 }) end
+		if extra then extra(false) end
+	end)
+end
+
+local function Pattern(parent, transparency)
+	return New("ImageLabel", {
+		Name = "BACKGROUND_PATTERN",
+		Parent = parent,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0.001),
+		Image = asset(IMAGES.Pattern),
+		ImageTransparency = transparency or 0.6,
+		ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(60, 60),
+		ZIndex = 0,
+	})
+end
+
+local function Draggable(frame, handle)
+	local dragging, dragStart, startPos = false, nil, nil
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging, dragStart, startPos = true, input.Position, frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch) then
+			local d = input.Position - dragStart
+			frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
+				startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end)
+end
+
+local function protect(gui)
+	local ok = pcall(function()
+		if syn and syn.protect_gui then syn.protect_gui(gui) end
+	end)
+	local parented = false
+	pcall(function() gui.Parent = gethui() parented = true end)
+	if not parented then
+		pcall(function() gui.Parent = CoreGui parented = true end)
+	end
+	if not parented then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+	return ok
+end
+
+local function randomName()
+	local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	local s = ""
+	for _ = 1, 12 do
+		local i = math.random(1, #chars)
+		s = s .. chars:sub(i, i)
+	end
+	return s
+end
+
+--=====================================================================
+-- 5) LIBRARY ROOT
+--=====================================================================
+local Nexo = {}
+Nexo.__index = Nexo
+Nexo.Flags = {}
+Nexo.Windows = {}
+
+local Window = {}
+Window.__index = Window
+
+-- tab order inside MAIN_ZONES (exactly the live order: Home, Pages, Credits)
+local ZONE_HOME, ZONE_PAGES, ZONE_CREDITS = 0, 1, 2
+
+function Nexo:CreateWindow(cfg)
+	cfg = cfg or {}
+
+	-- kill an older instance so running twice never duplicates the UI
+	for _, old in ipairs(Nexo.Windows) do pcall(function() old:Destroy() end) end
+	table.clear(Nexo.Windows)
+
+	local self = setmetatable({}, Window)
+	self.Config   = cfg
+	self.Flags    = Nexo.Flags
+	self.Tabs     = {}
+	self.Shortcuts= {}
+	self.Favorites= {}
+	self.Socials  = {}
+	self.Credits  = {}
+	self.Open     = false
+	self.CurrentZone = ZONE_HOME
+	self.ToggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift
+	self._conns   = {}
+
+	----------------------------------------------------------------- ScreenGui
+	local gui = New("ScreenGui", {
+		Name = cfg.Name or randomName(),
+		IgnoreGuiInset = true,
+		ResetOnSpawn = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 0,
+	})
+	protect(gui)
+	self.Gui = gui
+
+	----------------------------------------------------------- NOTIFICATION_ZONE
+	self.NotifyZone = New("Frame", {
+		Name = "NOTIFICATION_ZONE",
+		Parent = gui,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(0.985, 0, 0.975, 0),
+		Size = UDim2.new(0.22, 0, 0.5, 0),
+		ZIndex = 1200,
+	}, {
+		VList(UDim.new(0.02, 0), Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Bottom),
+		Aspect(0.55, Enum.AspectType.FitWithinMaxSize, Enum.DominantAxis.Width),
+	})
+
+	--------------------------------------------------------------------- MAIN_UI
+	local main = New("CanvasGroup", {
+		Name = "MAIN_UI",
+		Parent = gui,
+		BackgroundColor3 = THEME.Base,
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = GEO.ClosedPos,
+		Size = GEO.ClosedSize,
+		GroupTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 999,
+		Visible = true,
+	}, {
+		Corner(GEO.Corner),
+		Aspect(GEO.Aspect),
+	})
+	self.Main = main
+
+	-- background artwork layer (your Background id) + the live gradient + pattern
+	if IMAGES.Background ~= "" then
+		New("ImageLabel", {
+			Name = "BACKGROUND_IMAGE", Parent = main,
+			BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
+			Image = asset(IMAGES.Background), ScaleType = Enum.ScaleType.Crop, ZIndex = 0,
+		})
+	end
+
+	local gradFrame = New("Frame", {
+		Name = "GRADIENT", Parent = main,
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 0,
+	}, { PanelGradient() })
+	Pattern(gradFrame, 0.6)
+	self.Gradient = gradFrame
+
+	------------------------------------------------------------------ MAIN_ZONES
+	local zones = New("Frame", {
+		Name = "MAIN_ZONES", Parent = main,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromScale(0, 0),
+		ZIndex = 1,
+	}, { HList(UDim.new(0, 0), Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top) })
+	self.Zones = zones
+
+	local function zone(name, order)
+		return New("Frame", {
+			Name = name, Parent = zones, LayoutOrder = order,
+			BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 1,
+		})
+	end
+	self.HomeTab    = zone("HOME_TAB",    ZONE_HOME)
+	self.PagesTab   = zone("PAGES_TAB",   ZONE_PAGES)
+	self.CreditsTab = zone("CREDITS_TAB", ZONE_CREDITS)
+
+	------------------------------------------------------------------ Transition
+	self.Transition = New("Frame", {
+		Name = "Transition", Parent = main,
+		BackgroundColor3 = THEME.Base, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0, 0.5),
+		Size = UDim2.fromScale(0.996, 1),
+		ClipsDescendants = true, ZIndex = 99,
+	}, {
+		New("ImageLabel", {
+			Name = "Label", BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.501, 0.501),
+			Size = UDim2.fromScale(0.332, 0.340),
+			Image = asset(IMAGES.Banner), ImageTransparency = 1,
+			ScaleType = Enum.ScaleType.Fit, ZIndex = 99,
+		}),
+	})
+
+	--------------------------------------------------------------------- TOP_BAR
+	local top = New("Frame", {
+		Name = "TOP_BAR", Parent = main,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(0.999, GEO.TopBarH),
+		Position = UDim2.fromScale(0, -0.003),
+		ZIndex = 4,
+	})
+	self.TopBar = top
+	Pattern(top, 0.6)
+
+	New("TextLabel", {
+		Name = "DECORATION", Parent = top,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.349, 0.523),
+		Size = UDim2.fromScale(0.298, 0.295),
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Semi, ZIndex = 1,
+		Text = '>>  <font color="#f8042e">>></font>  >>  <font color="#f8042e">>></font>',
+	})
+
+	New("ImageLabel", {
+		Name = "HUB_LOGO", Parent = top,
+		BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.055, 0.183),
+		Size = UDim2.fromScale(0.131, 0.708),
+		Image = asset(IMAGES.Logo), ScaleType = Enum.ScaleType.Fit, ZIndex = 1,
+	})
+
+	-- three top tabs at the exact live X positions
+	self.TopButtons = {}
+	local tabDefs = {
+		{ name = "TOP_HOME",    text = "Home",    x = 0.557, zone = ZONE_HOME },
+		{ name = "TOP_PAGES",   text = "Pages",   x = 0.712, zone = ZONE_PAGES },
+		{ name = "TOP_CREDITS", text = "Credits", x = 0.868, zone = ZONE_CREDITS },
+	}
+	for _, d in ipairs(tabDefs) do
+		local holder = New("TextButton", {
+			Name = d.name, Parent = top, Text = "",
+			BackgroundTransparency = 1, AutoButtonColor = false,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(d.x, 0.5),
+			Size = UDim2.fromScale(0.147, 0.598), ZIndex = 2,
+		})
+		local title = New("TextLabel", {
+			Name = "Title", Parent = holder,
+			BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(1, 0.6),
+			Text = d.text, TextColor3 = THEME.Text, TextTransparency = 0.5,
+			TextScaled = true, FontFace = FONT.Semi, ZIndex = 1,
+		})
+		holder.MouseEnter:Connect(function()
+			if self.CurrentZone ~= d.zone then
+				Tween(title, ANIM.Hover, { TextTransparency = 0.15 })
+			end
+		end)
+		holder.MouseLeave:Connect(function()
+			if self.CurrentZone ~= d.zone then
+				Tween(title, ANIM.Hover, { TextTransparency = 0.5 })
+			end
+		end)
+		holder.MouseButton1Click:Connect(function() self:SelectZone(d.zone) end)
+		self.TopButtons[d.zone] = { Holder = holder, Title = title }
+	end
+
+	Draggable(main, top)
+
+	-------------------------------------------------------- TOGGLE_APPEARANCE
+	local toggle = New("CanvasGroup", {
+		Name = "TOGGLE_APPEARANCE", Parent = gui,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = GEO.TogglePos,
+		Size = GEO.ToggleSize,
+		ClipsDescendants = true, ZIndex = 1001,
+	}, { Aspect(1) })
+	self.Toggle = toggle
+
+	local tGradient = New("ImageLabel", {
+		Name = "Background_Gradient", Parent = toggle,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.976, 0.929),
+		Image = asset(IMAGES.ToggleShape), ScaleType = Enum.ScaleType.Stretch, ZIndex = 1,
+	}, {
+		New("UIGradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 51, 51)),
+				ColorSequenceKeypoint.new(0.25, Color3.fromRGB(74, 30, 30)),
+				ColorSequenceKeypoint.new(0.50, Color3.fromRGB(24, 24, 24)),
+				ColorSequenceKeypoint.new(0.75, Color3.fromRGB(78, 31, 31)),
+				ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 51, 51)),
+			}),
+		}),
+	})
+	self.ToggleGradient = tGradient:FindFirstChildOfClass("UIGradient")
+
+	New("ImageLabel", {
+		Name = "Background", Parent = toggle,
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.911, 0.855),
+		Image = asset(IMAGES.ToggleShape), ImageColor3 = THEME.Base,
+		ScaleType = Enum.ScaleType.Stretch, ZIndex = 2,
+	})
+
+	local tLogo = New("ImageButton", {
+		Name = "Logo", Parent = toggle,
+		BackgroundTransparency = 1, AutoButtonColor = false,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.480),
+		Size = UDim2.fromScale(0.697, 0.697),
+		Image = asset(IMAGES.MiniIcon), ScaleType = Enum.ScaleType.Fit, ZIndex = 3,
+	}, { New("UICorner", { Name = "LOGOUICorner", CornerRadius = UDim.new(0, 999) }) })
+	self.ToggleLogo = tLogo
+
+	tLogo.MouseButton1Click:Connect(function() self:SetVisible(not self.Open) end)
+	tLogo.MouseEnter:Connect(function()
+		Tween(toggle, ANIM.Hover, { Size = UDim2.new(GEO.ToggleSize.X.Scale * 1.08, 44, GEO.ToggleSize.Y.Scale * 1.08, 44) })
+	end)
+	tLogo.MouseLeave:Connect(function()
+		Tween(toggle, ANIM.Hover, { Size = GEO.ToggleSize })
+	end)
+	Draggable(toggle, tLogo)
+
+	-- endless gradient spin, exactly like the live mini icon
+	task.spawn(function()
+		while self.ToggleGradient and self.ToggleGradient.Parent do
+			Tween(self.ToggleGradient, TweenInfo.new(ANIM.GradientSpin, Enum.EasingStyle.Linear), { Rotation = 360 })
+			task.wait(ANIM.GradientSpin)
+			if self.ToggleGradient then self.ToggleGradient.Rotation = 0 end
+		end
+	end)
+
+	---------------------------------------------------------------- build pages
+	self:_buildHome()
+	self:_buildPages()
+	self:_buildCredits()
+	self:SelectZone(ZONE_HOME, true)
+
+	-- toggle keybind
+	table.insert(self._conns, UserInputService.InputBegan:Connect(function(input, gpe)
+		if gpe then return end
+		if input.KeyCode == self.ToggleKey then self:SetVisible(not self.Open) end
+	end))
+
+	table.insert(Nexo.Windows, self)
+	if cfg.AutoShow ~= false then
+		task.defer(function() self:SetVisible(true) end)
+	end
+	return self
+end
+
+--=====================================================================
+-- 6) OPEN / CLOSE / ZONE SWITCH ANIMATIONS
+--=====================================================================
+function Window:SetVisible(state, instant)
+	if state == self.Open then return end
+	self.Open = state
+	local info = state and ANIM.Open or ANIM.Close
+	if instant then info = TweenInfo.new(0) end
+
+	if state then
+		self.Main.Visible = true
+		Tween(self.Main, info, {
+			Size = GEO.OpenSize,
+			Position = GEO.OpenPos,
+			GroupTransparency = 0,
+		})
+		Tween(self.Toggle, info, { GroupTransparency = 0.35 })
+		self:PlayTransition()
+	else
+		Tween(self.Main, info, {
+			Size = GEO.ClosedSize,
+			Position = GEO.ClosedPos,
+			GroupTransparency = 1,
+		})
+		Tween(self.Toggle, info, { GroupTransparency = 0 })
+	end
+end
+
+function Window:Show()   self:SetVisible(true)  end
+function Window:Hide()   self:SetVisible(false) end
+function Window:ToggleUI() self:SetVisible(not self.Open) end
+
+-- the wipe + logo flash used by the live UI when it opens or changes page
+function Window:PlayTransition()
+	local t, lbl = self.Transition, self.Transition.Label
+	t.Position = UDim2.fromScale(0, 0.5)
+	t.BackgroundTransparency = 0
+	lbl.ImageTransparency = 1
+	Tween(lbl, TweenInfo.new(0.25), { ImageTransparency = 0 })
+	task.delay(0.25, function()
+		Tween(lbl, TweenInfo.new(0.2), { ImageTransparency = 1 })
+		Tween(t, ANIM.Transition, { Position = UDim2.fromScale(1, 0.5) })
+	end)
+end
+
+function Window:SelectZone(index, instant)
+	self.CurrentZone = index
+	for zone, btn in pairs(self.TopButtons) do
+		local active = (zone == index)
+		Tween(btn.Title, ANIM.Hover, {
+			TextColor3 = active and THEME.Accent or THEME.Text,
+			TextTransparency = active and 0 or 0.5,
+		})
+	end
+	local goal = UDim2.fromScale(-index, 0)
+	if instant then self.Zones.Position = goal
+	else Tween(self.Zones, ANIM.TabSlide, { Position = goal }) end
+end
+
+function Window:Destroy()
+	for _, c in ipairs(self._conns) do pcall(function() c:Disconnect() end) end
+	pcall(function() self.Gui:Destroy() end)
+end
+
+--=====================================================================
+-- 7) HOME TAB  (exact live geometry)
+--=====================================================================
+function Window:_buildHome()
+	local cfg = self.Config
+	local tab = self.HomeTab
+
+	local upper = New("Frame", {
+		Name = "Upper", Parent = tab, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), ZIndex = 1,
+	})
+
+	self.HomeHeader = New("TextLabel", {
+		Name = "HEADER", Parent = upper, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.225, 0.286),
+		Size = UDim2.fromScale(0.341, 0.233),
+		Text = cfg.Title or 'WELCOME TO\n<font color="#f8042e">BEST FREE</font>\nBLOX FRUIT',
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Heavy, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1,
+	})
+
+	self.HomeSubtitle = New("TextLabel", {
+		Name = "TITLE1", Parent = upper, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.248, 0.485),
+		Size = UDim2.fromScale(0.386, 0.165),
+		Text = cfg.Subtitle or "Thanks for using our services.\nWe are commited to bring great quality.",
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Semi, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1,
+	})
+
+	self.SocialsHolder = New("Frame", {
+		Name = "SOCIALS_BUTTONS", Parent = upper, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.055, 0.577),
+		Size = UDim2.fromScale(0.386, 0.079), ZIndex = 1,
+	}, { HList(UDim.new(0.05, 0), Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center) })
+
+	self.Banner = New("ImageLabel", {
+		Name = "UPDATE_BANNER1", Parent = upper, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.468, 0.155),
+		Size = UDim2.fromScale(0.483, 0.534),
+		Image = asset(cfg.Banner or IMAGES.Banner),
+		ScaleType = Enum.ScaleType.Fit, ZIndex = 1,
+	})
+	-- gentle live "breathing" of the banner
+	task.spawn(function()
+		while self.Banner and self.Banner.Parent do
+			Tween(self.Banner, TweenInfo.new(2.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+				{ Size = UDim2.fromScale(0.497, 0.549) })
+			task.wait(2.2)
+			Tween(self.Banner, TweenInfo.new(2.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+				{ Size = UDim2.fromScale(0.483, 0.534) })
+			task.wait(2.2)
+		end
+	end)
+
+	---------------------------------------------------------------- Functions row
+	local functions = New("Frame", {
+		Name = "Functions", Parent = tab, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.001, 0.972),
+		Size = UDim2.fromScale(1, 0.284), ZIndex = 1,
+	})
+
+	local pager = New("Frame", {
+		Name = "HOME_PAGER", Parent = functions, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1), ClipsDescendants = true, ZIndex = 1,
+	})
+	local holder = New("Frame", {
+		Name = "PAGES_HOLDER", Parent = pager, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(2, 1), Position = UDim2.fromScale(0, 0), ZIndex = 1,
+	})
+	self.HomeHolder = holder
+
+	self.ShortcutPage = New("Frame", {
+		Name = "PAGE_SHORTCUTS", Parent = holder, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(0.5, 1), Position = UDim2.fromScale(0, 0), ZIndex = 1,
+	}, { HList(UDim.new(0.02, 0)) })
+
+	self.FavoritePage = New("Frame", {
+		Name = "PAGE_FAVORITES", Parent = holder, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(0.5, 1), Position = UDim2.fromScale(0.5, 0), ZIndex = 1,
+	}, { HList(UDim.new(0.02, 0)) })
+
+	self.FavEmpty = New("TextLabel", {
+		Name = "FavEmpty", Parent = self.FavoritePage, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.8, 0.12),
+		Text = "No favorites yet \u{2014} tap \u{2605} on any sub-page.",
+		TextScaled = true, TextColor3 = THEME.Text, TextTransparency = 0.4,
+		FontFace = FONT.Regular, ZIndex = 2,
+	})
+
+	-- paging dots
+	local dots = New("Frame", {
+		Name = "DOTS", Parent = pager, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromScale(0.2, 0.08), ZIndex = 50,
+	}, { HList(UDim.new(0.08, 0)) })
+	self.Dots = {}
+	for i = 1, 2 do
+		local dot = New("TextButton", {
+			Name = "DOT_" .. i, Parent = dots, Text = "", AutoButtonColor = false,
+			BackgroundColor3 = THEME.Text,
+			BackgroundTransparency = (i == 1) and 0.1 or 0.7,
+			Size = UDim2.fromScale(0.35, 0.7), ZIndex = 51,
+		}, { Aspect(1), New("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+		dot.MouseButton1Click:Connect(function() self:SetHomePage(i) end)
+		self.Dots[i] = dot
+	end
+	self.HomePage = 1
+end
+
+function Window:SetHomePage(index)
+	self.HomePage = index
+	Tween(self.HomeHolder, ANIM.PageSlide, { Position = UDim2.fromScale(-0.5 * (index - 1), 0) })
+	for i, dot in ipairs(self.Dots) do
+		Tween(dot, ANIM.Hover, { BackgroundTransparency = (i == index) and 0.1 or 0.7 })
+	end
+end
+
+-- ui:AddSocial({ Image = "10367063073", Callback = function() end })
+function Window:AddSocial(info)
+	info = info or {}
+	local n = #self.Socials + 1
+	local btn = New("ImageButton", {
+		Name = tostring(n), Parent = self.SocialsHolder, LayoutOrder = n,
+		BackgroundTransparency = 1, AutoButtonColor = false,
+		Size = UDim2.fromScale(0.139, 0.909),
+		Image = asset(info.Image or IMAGES.Discord),
+		ImageColor3 = info.Color or THEME.Accent,
+		ScaleType = Enum.ScaleType.Fit, ZIndex = 1,
+	})
+	btn.MouseEnter:Connect(function()
+		Tween(btn, ANIM.Hover, { Size = UDim2.fromScale(0.155, 1.0), ImageColor3 = THEME.Text })
+	end)
+	btn.MouseLeave:Connect(function()
+		Tween(btn, ANIM.Hover, { Size = UDim2.fromScale(0.139, 0.909), ImageColor3 = info.Color or THEME.Accent })
+	end)
+	btn.MouseButton1Click:Connect(function()
+		if info.Copy then pcall(setclipboard, info.Copy) end
+		if info.Callback then task.spawn(info.Callback) end
+	end)
+	table.insert(self.Socials, btn)
+	return btn
+end
+
+-- ui:AddShortcut({ Title = "AUTO FARM", Image = "...", Callback = function() end })
+function Window:AddShortcut(info)
+	info = info or {}
+	local n = #self.Shortcuts + 1
+	local btn = New("TextButton", {
+		Name = "HOMEPAGE_BUTTON", Parent = self.ShortcutPage, LayoutOrder = n,
+		Text = "", AutoButtonColor = false,
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.5,
+		Size = UDim2.fromScale(0.291, 0.743), ZIndex = 1,
+	}, { Corner(UDim.new(0.12, 0)) })
+	local glow = HoverGlow(btn)
+	New("ImageLabel", {
+		Name = "Icon", Parent = btn, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromScale(0.5, 0.12), Size = UDim2.fromScale(0.42, 0.42),
+		Image = asset(info.Image or IMAGES.Card1Icon), ScaleType = Enum.ScaleType.Fit, ZIndex = 2,
+	})
+	New("TextLabel", {
+		Name = "Title", Parent = btn, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.9), Size = UDim2.fromScale(0.9, 0.2),
+		Text = info.Title or "SHORTCUT", TextScaled = true, RichText = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Bold, ZIndex = 2,
+	})
+	BindHover(btn, glow, function(inside)
+		Tween(btn, ANIM.Hover, { BackgroundTransparency = inside and 0.3 or 0.5 })
+	end)
+	btn.MouseButton1Click:Connect(function()
+		Tween(btn, ANIM.Press, { Size = UDim2.fromScale(0.275, 0.70) })
+		task.delay(0.09, function() Tween(btn, ANIM.Press, { Size = UDim2.fromScale(0.291, 0.743) }) end)
+		if info.Callback then task.spawn(info.Callback) end
+	end)
+	table.insert(self.Shortcuts, btn)
+	return btn
+end
+
+--=====================================================================
+-- 8) CREDITS TAB  (exact live geometry)
+--=====================================================================
+function Window:_buildCredits()
+	local cfg = self.Config
+	local tab = self.CreditsTab
+
+	local upper = New("Frame", {
+		Name = "Upper", Parent = tab, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), ZIndex = 1,
+	})
+
+	New("ImageLabel", {
+		Name = "Pfp", Parent = upper, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.204, 0.215), Size = UDim2.fromScale(0.230, 0.261),
+		Image = asset(cfg.CommunityImage or IMAGES.Logo), ScaleType = Enum.ScaleType.Fit, ZIndex = 1,
+	}, { Corner(UDim.new(0.075, 0)) })
+
+	New("TextLabel", {
+		Name = "Invitation", Parent = upper, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.622, 0.263), Size = UDim2.fromScale(0.376, 0.097),
+		Text = cfg.CommunityTitle or 'JOIN OUR <font color="#f8042e">COMMUNITY</font> !',
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Bold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1,
+	})
+
+	New("TextLabel", {
+		Name = "Mems", Parent = upper, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.622, 0.326), Size = UDim2.fromScale(0.376, 0.064),
+		Text = cfg.CommunityMembers or '<font color="#f8042e">600K+</font> MEMBERS',
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Bold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1,
+	})
+
+	local copyBtn = New("TextButton", {
+		Name = "Copy Invite", Parent = upper, Text = "", AutoButtonColor = false,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.612, 0.411), Size = UDim2.fromScale(0.356, 0.078),
+		BackgroundColor3 = THEME.AccentDeep, ZIndex = 1,
+	}, {
+		Corner(UDim.new(0.2, 0)),
+		New("UIStroke", { Color = THEME.StrokeRed, Thickness = 1, Transparency = 0.5,
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		New("TextLabel", {
+			Name = "Title", BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 0.7),
+			Text = cfg.CopyText or "COPY INVITE", TextScaled = true,
+			TextColor3 = THEME.Text, FontFace = FONT.Bold, ZIndex = 1,
+		}),
+	})
+	local glow = HoverGlow(copyBtn)
+	BindHover(copyBtn, glow)
+	copyBtn.MouseButton1Click:Connect(function()
+		pcall(setclipboard, cfg.Invite or "https://discord.gg/")
+		self:Notify({ Title = "COPIED", Text = "Invite link copied to your clipboard." })
+	end)
+
+	New("TextLabel", {
+		Name = "Credits", Parent = upper, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.554, 0.568), Size = UDim2.fromScale(0.646, 0.132),
+		Text = cfg.CreditsTitle or 'BIG <font color="#f8042e">THANKS</font> TO OUR CONTRIBUTORS ',
+		RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Bold, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1,
+	})
+
+	local contributors = New("Frame", {
+		Name = "Contributors", Parent = tab, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), ZIndex = 1,
+	})
+	self.CreditsScroll = New("ScrollingFrame", {
+		Parent = contributors, BackgroundTransparency = 1, BorderSizePixel = 0,
+		Position = UDim2.fromScale(0.203, 0.634), Size = UDim2.fromScale(0.646, 0.287),
+		CanvasSize = UDim2.fromScale(0, 1), ScrollBarThickness = 0,
+		ClipsDescendants = true, ZIndex = 1,
+	}, { VList(UDim.new(0, 0)) })
+end
+
+-- ui:AddCredit("\u{1F451} acsu123 \u{1F451}")
+function Window:AddCredit(text)
+	local lbl = New("TextLabel", {
+		Name = "label", Parent = self.CreditsScroll, BackgroundTransparency = 1,
+		LayoutOrder = #self.Credits + 1,
+		Size = UDim2.fromScale(1, 0.07),
+		Text = tostring(text), RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi, ZIndex = 1,
+	})
+	table.insert(self.Credits, lbl)
+	return lbl
+end
+
+--=====================================================================
+-- 9) NOTIFICATIONS
+--=====================================================================
+function Window:Notify(info)
+	info = info or {}
+	local card = New("Frame", {
+		Parent = self.NotifyZone, BackgroundColor3 = THEME.Panel,
+		BackgroundTransparency = 0.15, BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 0.18), Position = UDim2.fromScale(1.4, 0), ZIndex = 1200,
+	}, {
+		Corner(UDim.new(0.12, 0)),
+		PanelGradient(),
+		New("UIStroke", { Color = THEME.GradTop, Thickness = 1.4, Transparency = 0.35 }),
+	})
+	New("ImageLabel", {
+		Parent = card, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0.05, 0.5), Size = UDim2.fromScale(0.18, 0.55),
+		Image = asset(info.Image ~= nil and info.Image or IMAGES.Logo),
+		ScaleType = Enum.ScaleType.Fit, ZIndex = 1201,
+	})
+	New("TextLabel", {
+		Parent = card, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.27, 0.15), Size = UDim2.fromScale(0.68, 0.28),
+		Text = info.Title or "NOTIFICATION", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Accent, FontFace = FONT.Bold,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1201,
+	})
+	New("TextLabel", {
+		Parent = card, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.27, 0.45), Size = UDim2.fromScale(0.68, 0.4),
+		Text = info.Text or "", RichText = true, TextScaled = true, TextWrapped = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1201,
+	})
+	Tween(card, ANIM.NotifyIn, { Position = UDim2.fromScale(0, 0) })
+	task.delay(info.Duration or 4, function()
+		Tween(card, ANIM.NotifyOut, { Position = UDim2.fromScale(1.4, 0) })
+		task.delay(0.32, function() card:Destroy() end)
+	end)
+	return card
+end
+
+--=====================================================================
+-- 10) PAGES TAB  (search bar + card levels, exact live geometry)
+--     level 1 = tab cards, level 2 = section cards, level 3 = controls
+--=====================================================================
+local function makeSearchBox(parent, wide)
+	local box = New("Frame", {
+		Name = "SearchBox", Parent = parent,
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.5, BorderSizePixel = 0,
+		Position = UDim2.fromScale(0.055, 0.179),
+		Size = UDim2.fromScale(wide and 0.890 or 0.787, 0.116), ZIndex = 3,
+	})
+	local grad = New("Frame", {
+		Name = "Gradient", Parent = box, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1), ZIndex = 0,
+	}, {
+		Corner(UDim.new(0.3, 0)),
+		StrokeGradient(0.1),
+	})
+	local stroke = New("UIStroke", {
+		Parent = grad, Color = THEME.Text, Thickness = 2.5, Transparency = 0,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
+	})
+	StrokeGradient(0).Parent = stroke
+	Corner(UDim.new(0.3, 0)).Parent = box
+
+	local tb = New("TextBox", {
+		Name = "Textbox", Parent = box, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(0.720, 0.579),
+		Text = "", PlaceholderText = "Search...", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi, ClearTextOnFocus = false, ZIndex = 2,
+	})
+	return box, tb
+end
+
+function Window:_buildPages()
+	local tab = self.PagesTab
+
+	local anchor = New("Frame", {
+		Name = "ANCHOR", Parent = tab, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), ZIndex = 1,
+	})
+	self.Anchor = anchor
+
+	local box, tb = makeSearchBox(anchor, true)
+	self.SearchBox, self.SearchInput = box, tb
+
+	-- DEEP SEARCH pill (exact live values)
+	local deep = New("TextButton", {
+		Name = "DeepSearchBtn", Parent = box, Text = "", AutoButtonColor = false,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -4, 0.5, 0), Size = UDim2.fromScale(0.260, 0.720),
+		BackgroundColor3 = THEME.GradTop, BackgroundTransparency = 0.25, ZIndex = 4,
+	}, { Corner(UDim.new(0.25, 0)) })
+	New("ImageLabel", {
+		Name = "Icon", Parent = deep, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.new(1, 0, 1, -6),
+		Image = asset(IMAGES.DeepSearch), ScaleType = Enum.ScaleType.Fit, ZIndex = 5,
+	}, { Corner(UDim.new(0.5, 0)) })
+	New("TextLabel", {
+		Name = "Label", Parent = deep, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -4, 0.5, 0), Size = UDim2.fromScale(0.720, 0.600),
+		Text = "Deep Search", TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Bangers, ZIndex = 5,
+	})
+	BindHover(deep, nil, function(inside)
+		Tween(deep, ANIM.Hover, { BackgroundTransparency = inside and 0.05 or 0.25 })
+	end)
+
+	-- RETURN button (hidden on level 1)
+	local ret = New("TextButton", {
+		Name = "RETURN_BUTTON", Parent = anchor, Text = "", AutoButtonColor = false,
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.5,
+		Position = UDim2.fromScale(0.867, 0.179), Size = UDim2.fromScale(0.078, 0.116),
+		ZIndex = 3, Visible = false,
+	}, { Corner(UDim.new(0.3, 0)) })
+	New("ImageLabel", {
+		Name = "Icon", Parent = ret, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.6, 0.6),
+		Image = asset(IMAGES.BackIcon), ScaleType = Enum.ScaleType.Fit, ZIndex = 4,
+	})
+	ret.MouseButton1Click:Connect(function() self:GoBack() end)
+	BindHover(ret, nil, function(inside)
+		Tween(ret, ANIM.Hover, { BackgroundTransparency = inside and 0.3 or 0.5 })
+	end)
+	self.ReturnButton = ret
+
+	-- the three stacked levels, all sharing the live "Sections" geometry
+	local function level(name, y)
+		return New("ScrollingFrame", {
+			Name = name, Parent = anchor,
+			BackgroundColor3 = THEME.Section, BackgroundTransparency = 0.75, BorderSizePixel = 0,
+			Position = UDim2.fromScale(0.055, y), Size = UDim2.fromScale(0.890, 0.602),
+			CanvasSize = UDim2.fromScale(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			ScrollBarThickness = 2, ScrollBarImageColor3 = THEME.ScrollBar,
+			ClipsDescendants = true, ZIndex = 3, Visible = false,
+		}, { Corner(GEO.Corner) })
+	end
+	self.LevelTabs     = level("Sections", 0.345)   -- tab cards
+	self.LevelSections = level("MINI_PAGES", 0.337) -- section cards
+	self.LevelTabs.Visible = true
+
+	New("UIGridLayout", {
+		Parent = self.LevelTabs,
+		CellSize = UDim2.fromScale(0.475, 0.30),
+		CellPadding = UDim2.fromScale(0.02, 0.045),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+	New("UIGridLayout", {
+		Parent = self.LevelSections,
+		CellSize = UDim2.fromScale(0.475, 0.30),
+		CellPadding = UDim2.fromScale(0.02, 0.045),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+
+	self.EmptyHint = New("TextLabel", {
+		Parent = anchor, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.646), Size = UDim2.fromScale(0.7, 0.08),
+		Text = "No tabs yet \u{2014} add them with  ui:AddTab({ Title = \"...\" })",
+		TextScaled = true, TextColor3 = THEME.Text, TextTransparency = 0.45,
+		FontFace = FONT.Semi, ZIndex = 5,
+	})
+
+	self.Level = 1
+	self.SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+		self:_filter(self.SearchInput.Text)
+	end)
+end
+
+-- generic card used for tabs and for sections (identical live styling)
+function Window:_card(parent, info, order)
+	local card = New("TextButton", {
+		Name = info.Title or "CARD", Parent = parent, LayoutOrder = order,
+		Text = "", AutoButtonColor = false,
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.5,
+		ZIndex = 4,
+	}, { Corner(UDim.new(0.12, 0)) })
+	New("UIStroke", { Parent = card, Color = THEME.GradTop, Thickness = 1.2, Transparency = 0.55 })
+	local glow = HoverGlow(card)
+	New("ImageLabel", {
+		Name = "Icon", Parent = card, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0.06, 0.5), Size = UDim2.fromScale(0.22, 0.55),
+		Image = asset(info.Image or IMAGES.TabIcon), ScaleType = Enum.ScaleType.Fit, ZIndex = 5,
+	})
+	New("TextLabel", {
+		Name = "Title", Parent = card, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.32, 0.20), Size = UDim2.fromScale(0.62, 0.30),
+		Text = info.Title or "TAB", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Bold,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5,
+	})
+	New("TextLabel", {
+		Name = "Desc", Parent = card, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.32, 0.52), Size = UDim2.fromScale(0.62, 0.28),
+		Text = info.Desc or "", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, TextTransparency = 0.45, FontFace = FONT.Semi,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5,
+	})
+	BindHover(card, glow, function(inside)
+		Tween(card, ANIM.Hover, { BackgroundTransparency = inside and 0.28 or 0.5 })
+	end)
+	return card
+end
+
+local function fadeInRows(container)
+	local i = 0
+	for _, child in ipairs(container:GetChildren()) do
+		if child:IsA("GuiObject") then
+			i += 1
+			child.BackgroundTransparency = 1
+			local target = 0.5
+			task.delay(i * ANIM.RowStagger, function()
+				if child.Parent then Tween(child, ANIM.SectionIn, { BackgroundTransparency = target }) end
+			end)
+		end
+	end
+end
+
+function Window:_showLevel(n, animate)
+	self.Level = n
+	local frames = { self.LevelTabs, self.LevelSections, self.CurrentConfig }
+	for i, f in ipairs(frames) do
+		if f then f.Visible = (i == n) end
+	end
+	if self.CurrentConfig and n ~= 3 then self.CurrentConfig.Visible = false end
+	self.ReturnButton.Visible = (n > 1)
+	self.SearchBox.Size = UDim2.fromScale(n > 1 and 0.787 or 0.890, 0.116)
+	self.EmptyHint.Visible = (n == 1 and #self.Tabs == 0)
+
+	local shown = frames[n]
+	if shown and animate ~= false then
+		shown.Position = UDim2.fromScale(0.055 + 0.06, n == 1 and 0.345 or 0.337)
+		Tween(shown, ANIM.SectionIn, { Position = UDim2.fromScale(0.055, n == 1 and 0.345 or 0.337) })
+		fadeInRows(shown)
+	end
+end
+
+function Window:GoBack()
+	if self.Level == 3 then
+		self:_showLevel(2)
+	elseif self.Level == 2 then
+		self:_showLevel(1)
+	end
+end
+
+function Window:_filter(query)
+	query = string.lower(query or "")
+	local frames = { self.LevelTabs, self.LevelSections, self.CurrentConfig }
+	local current = frames[self.Level]
+	if not current then return end
+	for _, child in ipairs(current:GetDescendants()) do
+		if child:IsA("GuiButton") and child:FindFirstChild("Title") then
+			local ok = (query == "") or string.find(string.lower(child.Title.Text), query, 1, true) ~= nil
+			child.Visible = ok
+		end
+	end
+end
+
+--=====================================================================
+-- 11) TABS / SECTIONS / CONTROLS
+--     live control heights (relative to the column unit):
+--       Button 0.60 | Checkbox 0.80 | Slider 1.25 | Textbox 1.48 | Dropdown 3.31
+--=====================================================================
+local H = { Button = 0.60, Toggle = 0.80, Slider = 1.25, Textbox = 1.48, Dropdown = 3.31, Label = 0.55, Keybind = 0.80 }
+
+local Tab = {}
+Tab.__index = Tab
+local Section = {}
+Section.__index = Section
+
+-- ui:AddTab({ Title = "AUTO FARM", Desc = "...", Image = "..." })
+function Window:AddTab(info)
+	info = info or {}
+	local tab = setmetatable({}, Tab)
+	tab.Window = self
+	tab.Title = info.Title or ("TAB " .. tostring(#self.Tabs + 1))
+	tab.Sections = {}
+
+	-- level-2 page that will hold this tab's section cards
+	tab.Page = New("Frame", {
+		Name = "MINI_" .. (#self.Tabs + 1), Parent = self.LevelSections,
+		BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, ZIndex = 3,
+	})
+	New("UIGridLayout", {
+		Parent = tab.Page,
+		CellSize = UDim2.fromScale(0.475, 0.30),
+		CellPadding = UDim2.fromScale(0.02, 0.045),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	})
+
+	tab.Card = self:_card(self.LevelTabs, {
+		Title = tab.Title, Desc = info.Desc, Image = info.Image,
+	}, #self.Tabs + 1)
+	tab.Card.MouseButton1Click:Connect(function()
+		for _, t in ipairs(self.Tabs) do t.Page.Visible = false end
+		tab.Page.Visible = true
+		self:_showLevel(2)
+	end)
+
+	table.insert(self.Tabs, tab)
+	self.EmptyHint.Visible = false
+	return tab
+end
+
+function Window:FindTab(name)
+	for _, t in ipairs(self.Tabs) do if t.Title == name then return t end end
+end
+
+-- tab:AddSection({ Title = "MAIN", Desc = "...", Image = "..." })
+function Tab:AddSection(info)
+	info = info or {}
+	local win = self.Window
+	local sec = setmetatable({}, Section)
+	sec.Window = win
+	sec.Tab = self
+	sec.Title = info.Title or ("SECTION " .. tostring(#self.Sections + 1))
+	sec.Controls = {}
+	sec._col = 1
+
+	-- level-3 config page, exact live layout
+	sec.Page = New("ScrollingFrame", {
+		Name = "CONFIG_" .. sec.Title, Parent = win.Anchor,
+		BackgroundColor3 = THEME.Section, BackgroundTransparency = 0.75, BorderSizePixel = 0,
+		Position = UDim2.fromScale(0.055, 0.345), Size = UDim2.fromScale(0.890, 0.602),
+		CanvasSize = UDim2.fromScale(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 0, ClipsDescendants = true, ZIndex = 3, Visible = false,
+	}, { Corner(GEO.Corner) })
+
+	local scroll = New("Frame", {
+		Name = "Inner", Parent = sec.Page, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.022, 0.054), Size = UDim2.fromScale(0.965, 0.946), ZIndex = 4,
+	})
+	local function column(x)
+		return New("Frame", {
+			Parent = scroll, BackgroundTransparency = 1,
+			Position = UDim2.fromScale(x, 0), Size = UDim2.fromScale(0.475, 0.080), ZIndex = 4,
+		}, {
+			Aspect(GEO.ColumnAspect, Enum.AspectType.ScaleWithParentSize, Enum.DominantAxis.Width),
+			VList(UDim.new(0.3, 0)),
+		})
+	end
+	sec.Col1 = column(0)
+	sec.Col2 = column(0.518)
+
+	sec.Card = win:_card(self.Page, {
+		Title = sec.Title, Desc = info.Desc, Image = info.Image,
+	}, #self.Sections + 1)
+	sec.Card.MouseButton1Click:Connect(function()
+		if win.CurrentConfig then win.CurrentConfig.Visible = false end
+		win.CurrentConfig = sec.Page
+		win:_showLevel(3)
+	end)
+
+	table.insert(self.Sections, sec)
+	return sec
+end
+
+function Section:_slot(height)
+	local parent = (self._col == 1) and self.Col1 or self.Col2
+	self._col = (self._col == 1) and 2 or 1
+	return New("TextButton", {
+		Parent = parent, Text = "", AutoButtonColor = false,
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.35,
+		Size = UDim2.fromScale(1, height), LayoutOrder = #self.Controls + 1, ZIndex = 4,
+	}, { Corner(UDim.new(0.18, 0)) })
+end
+
+local function slotTitle(slot, text, x)
+	return New("TextLabel", {
+		Name = "Title", Parent = slot, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(x or 0.05, 0.5), Size = UDim2.fromScale(0.65, 0.45),
+		Text = text, RichText = true, TextScaled = true, TextColor3 = THEME.Text,
+		FontFace = FONT.Semi, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5,
+	})
+end
+
+--------------------------------------------------------------------- BUTTON
+function Section:AddButton(info)
+	info = info or {}
+	local slot = self:_slot(H.Button)
+	slot.BackgroundColor3 = THEME.AccentDeep
+	slot.BackgroundTransparency = 0.15
+	slot.ClipsDescendants = true
+	local glow = HoverGlow(slot)
+	New("TextLabel", {
+		Name = "Title", Parent = slot, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.9, 0.55),
+		Text = info.Title or "BUTTON", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Bold, ZIndex = 5,
+	})
+	BindHover(slot, glow, function(inside)
+		Tween(slot, ANIM.Hover, { BackgroundTransparency = inside and 0 or 0.15 })
+	end)
+	slot.MouseButton1Click:Connect(function()
+		Tween(slot, ANIM.Press, { Size = UDim2.fromScale(0.96, H.Button * 0.94) })
+		task.delay(0.09, function() Tween(slot, ANIM.Press, { Size = UDim2.fromScale(1, H.Button) }) end)
+		if info.Callback then task.spawn(info.Callback) end
+	end)
+	table.insert(self.Controls, slot)
+	return slot
+end
+
+--------------------------------------------------------------------- TOGGLE
+function Section:AddToggle(info)
+	info = info or {}
+	local slot = self:_slot(H.Toggle)
+	slotTitle(slot, info.Title or "TOGGLE")
+	local state = info.Default and true or false
+
+	local track = New("Frame", {
+		Name = "Track", Parent = slot, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.94, 0.5), Size = UDim2.fromScale(0.20, 0.42),
+		BackgroundColor3 = state and THEME.AccentDeep or Color3.fromRGB(60, 60, 60), ZIndex = 5,
+	}, { Corner(UDim.new(1, 0)) })
+	local knob = New("Frame", {
+		Name = "Knob", Parent = track, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(state and 1 or 0, 0.5),
+		Position = UDim2.fromScale(state and 0.94 or 0.06, 0.5),
+		Size = UDim2.fromScale(0.42, 0.78),
+		BackgroundColor3 = THEME.Text, ZIndex = 6,
+	}, { Corner(UDim.new(1, 0)) })
+	local glow = HoverGlow(slot)
+	BindHover(slot, glow, function(inside)
+		Tween(slot, ANIM.Hover, { BackgroundTransparency = inside and 0.2 or 0.35 })
+	end)
+
+	local api = {}
+	function api:Set(v, silent)
+		state = v and true or false
+		Tween(track, ANIM.ToggleFlip, {
+			BackgroundColor3 = state and THEME.AccentDeep or Color3.fromRGB(60, 60, 60) })
+		Tween(knob, ANIM.ToggleFlip, {
+			Position = UDim2.fromScale(state and 0.94 or 0.06, 0.5),
+			AnchorPoint = Vector2.new(state and 1 or 0, 0.5) })
+		if info.Flag then Nexo.Flags[info.Flag] = state end
+		if not silent and info.Callback then task.spawn(info.Callback, state) end
+	end
+	function api:Get() return state end
+	slot.MouseButton1Click:Connect(function() api:Set(not state) end)
+	api:Set(state, true)
+	table.insert(self.Controls, slot)
+	return api
+end
+
+--------------------------------------------------------------------- SLIDER
+function Section:AddSlider(info)
+	info = info or {}
+	local min, max = info.Min or 0, info.Max or 100
+	local value = math.clamp(info.Default or min, min, max)
+	local decimals = info.Decimals or 0
+	local slot = self:_slot(H.Slider)
+	slot.AutoButtonColor = false
+
+	New("TextLabel", {
+		Name = "Title", Parent = slot, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.05, 0.10), Size = UDim2.fromScale(0.60, 0.30),
+		Text = info.Title or "SLIDER", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5,
+	})
+	local valueLabel = New("TextLabel", {
+		Name = "Value", Parent = slot, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(0.95, 0.10), Size = UDim2.fromScale(0.3, 0.30),
+		Text = tostring(value), TextScaled = true, TextColor3 = THEME.Accent,
+		FontFace = FONT.Bold, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 5,
+	})
+	local bar = New("Frame", {
+		Name = "Bar", Parent = slot, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.80), Size = UDim2.fromScale(0.90, 0.14),
+		BackgroundColor3 = Color3.fromRGB(45, 45, 45), ZIndex = 5,
+	}, { Corner(UDim.new(1, 0)) })
+	local fill = New("Frame", {
+		Name = "Fill", Parent = bar, BorderSizePixel = 0,
+		Size = UDim2.fromScale((value - min) / (max - min), 1),
+		BackgroundColor3 = THEME.AccentDeep, ZIndex = 6,
+	}, { Corner(UDim.new(1, 0)) })
+	New("UIGradient", {
+		Parent = fill,
+		Color = ColorSequence.new(THEME.GradTop, THEME.Accent),
+	})
+
+	local api = {}
+	function api:Set(v, silent)
+		value = math.clamp(v, min, max)
+		local mult = 10 ^ decimals
+		value = math.floor(value * mult + 0.5) / mult
+		Tween(fill, ANIM.Slider, { Size = UDim2.fromScale((value - min) / (max - min), 1) })
+		valueLabel.Text = tostring(value) .. (info.Suffix or "")
+		if info.Flag then Nexo.Flags[info.Flag] = value end
+		if not silent and info.Callback then task.spawn(info.Callback, value) end
+	end
+	function api:Get() return value end
+
+	local dragging = false
+	local function update(input)
+		local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+		api:Set(min + (max - min) * rel)
+	end
+	slot.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true update(input)
+		end
+	end)
+	slot.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch) then update(input) end
+	end)
+	api:Set(value, true)
+	table.insert(self.Controls, slot)
+	return api
+end
+
+------------------------------------------------------------------- DROPDOWN
+function Section:AddDropdown(info)
+	info = info or {}
+	local options = info.Options or {}
+	local multi = info.Multi and true or false
+	local selected = multi and (info.Default or {}) or (info.Default or options[1])
+	local slot = self:_slot(H.Dropdown)
+	slot.ClipsDescendants = true
+
+	slotTitle(slot, info.Title or "DROPDOWN", 0.05).Size = UDim2.fromScale(0.9, 0.12)
+	slot.Title.AnchorPoint = Vector2.new(0, 0)
+	slot.Title.Position = UDim2.fromScale(0.05, 0.03)
+
+	local list = New("ScrollingFrame", {
+		Name = "List", Parent = slot, BackgroundTransparency = 1, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.96), Size = UDim2.fromScale(0.92, 0.78),
+		CanvasSize = UDim2.fromScale(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 2, ScrollBarImageColor3 = THEME.ScrollBar, ZIndex = 5,
+	}, { VList(UDim.new(0.02, 0)) })
+
+	local api = {}
+	local buttons = {}
+	local function isPicked(opt)
+		if multi then
+			for _, v in ipairs(selected) do if v == opt then return true end end
+			return false
+		end
+		return selected == opt
+	end
+	local function refresh()
+		for opt, btn in pairs(buttons) do
+			local on = isPicked(opt)
+			Tween(btn, ANIM.Hover, {
+				BackgroundColor3 = on and THEME.AccentDeep or THEME.Panel,
+				BackgroundTransparency = on and 0.1 or 0.45,
+			})
+		end
+	end
+	function api:Set(v, silent)
+		selected = v
+		refresh()
+		if info.Flag then Nexo.Flags[info.Flag] = selected end
+		if not silent and info.Callback then task.spawn(info.Callback, selected) end
+	end
+	function api:Get() return selected end
+	function api:Add(opt)
+		local btn = New("TextButton", {
+			Name = tostring(opt), Parent = list, Text = "", AutoButtonColor = false,
+			BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.45,
+			Size = UDim2.new(1, 0, 0, 24), ZIndex = 6,
+		}, { Corner(UDim.new(0.35, 0)) })
+		New("TextLabel", {
+			Name = "Title", Parent = btn, BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1), Text = tostring(opt), TextScaled = true,
+			TextColor3 = THEME.Text, FontFace = FONT.Semi, ZIndex = 7,
+		})
+		buttons[opt] = btn
+		btn.MouseButton1Click:Connect(function()
+			if multi then
+				local found
+				for i, v in ipairs(selected) do if v == opt then found = i break end end
+				if found then table.remove(selected, found) else table.insert(selected, opt) end
+				api:Set(selected)
+			else
+				api:Set(opt)
+			end
+		end)
+		BindHover(btn, nil, function(inside)
+			if not isPicked(opt) then
+				Tween(btn, ANIM.Hover, { BackgroundTransparency = inside and 0.25 or 0.45 })
+			end
+		end)
+	end
+	function api:Clear()
+		for _, b in pairs(buttons) do b:Destroy() end
+		buttons = {}
+	end
+	function api:Refresh(newOptions)
+		api:Clear()
+		for _, o in ipairs(newOptions or {}) do api:Add(o) end
+		refresh()
+	end
+	api:Refresh(options)
+	api:Set(selected, true)
+	table.insert(self.Controls, slot)
+	return api
+end
+
+-------------------------------------------------------------------- TEXTBOX
+function Section:AddTextbox(info)
+	info = info or {}
+	local slot = self:_slot(H.Textbox)
+	New("TextLabel", {
+		Name = "Title", Parent = slot, BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.05, 0.10), Size = UDim2.fromScale(0.9, 0.3),
+		Text = info.Title or "TEXTBOX", RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5,
+	})
+	local holder = New("Frame", {
+		Parent = slot, BackgroundColor3 = Color3.fromRGB(14, 14, 14),
+		BackgroundTransparency = 0.2, BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.9), Size = UDim2.fromScale(0.9, 0.42), ZIndex = 5,
+	}, { Corner(UDim.new(0.3, 0)) })
+	local tb = New("TextBox", {
+		Parent = holder, BackgroundTransparency = 1,
+		Size = UDim2.fromScale(0.92, 0.8), Position = UDim2.fromScale(0.04, 0.1),
+		Text = info.Default or "", PlaceholderText = info.Placeholder or "Type here...",
+		TextScaled = true, TextColor3 = THEME.Text, FontFace = FONT.Semi,
+		ClearTextOnFocus = false, ZIndex = 6,
+	})
+	tb.FocusLost:Connect(function(enter)
+		if info.Flag then Nexo.Flags[info.Flag] = tb.Text end
+		if info.Callback then task.spawn(info.Callback, tb.Text, enter) end
+	end)
+	table.insert(self.Controls, slot)
+	return { Set = function(_, v) tb.Text = v end, Get = function() return tb.Text end, Instance = tb }
+end
+
+-------------------------------------------------------------------- KEYBIND
+function Section:AddKeybind(info)
+	info = info or {}
+	local slot = self:_slot(H.Keybind)
+	slotTitle(slot, info.Title or "KEYBIND")
+	local key = info.Default
+	local btn = New("TextButton", {
+		Parent = slot, AutoButtonColor = false, Text = key and key.Name or "...",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(0.94, 0.5), Size = UDim2.fromScale(0.28, 0.5),
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.2,
+		TextScaled = true, TextColor3 = THEME.Accent, FontFace = FONT.Bold, ZIndex = 5,
+	}, { Corner(UDim.new(0.3, 0)) })
+	local listening = false
+	btn.MouseButton1Click:Connect(function()
+		listening = true
+		btn.Text = "..."
+	end)
+	UserInputService.InputBegan:Connect(function(input, gpe)
+		if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+			listening = false
+			key = input.KeyCode
+			btn.Text = key.Name
+			if info.Flag then Nexo.Flags[info.Flag] = key end
+		elseif not gpe and key and input.KeyCode == key and info.Callback then
+			task.spawn(info.Callback, key)
+		end
+	end)
+	table.insert(self.Controls, slot)
+	return { Get = function() return key end }
+end
+
+---------------------------------------------------------------------- LABEL
+function Section:AddLabel(text)
+	local slot = self:_slot(H.Label)
+	slot.BackgroundTransparency = 0.6
+	New("TextLabel", {
+		Name = "Title", Parent = slot, BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.9, 0.6),
+		Text = tostring(text), RichText = true, TextScaled = true,
+		TextColor3 = THEME.Text, FontFace = FONT.Semi, ZIndex = 5,
+	})
+	table.insert(self.Controls, slot)
+	return slot
+end
+
+function Section:AddParagraph(info)
+	info = info or {}
+	return self:AddLabel(("<b>%s</b>\n%s"):format(info.Title or "", info.Text or ""))
+end
+
+--=====================================================================
+-- 12) THEME / ASSET COMMANDS (change anything at runtime)
+--=====================================================================
+function Nexo:SetTheme(tbl)
+	for k, v in pairs(tbl or {}) do THEME[k] = v end
+end
+function Nexo:SetAnimation(tbl)
+	for k, v in pairs(tbl or {}) do ANIM[k] = v end
+end
+function Nexo:SetImages(tbl)
+	for k, v in pairs(tbl or {}) do IMAGES[k] = tostring(v) end
+end
+function Window:SetBanner(id) self.Banner.Image = asset(id) end
+function Window:SetLogo(id) self.TopBar.HUB_LOGO.Image = asset(id) end
+function Window:SetMiniIcon(id) self.ToggleLogo.Image = asset(id) end
+function Window:SetTitle(text) self.HomeHeader.Text = text end
+function Window:SetSubtitle(text) self.HomeSubtitle.Text = text end
+
+Nexo.Theme = THEME
+Nexo.Animations = ANIM
+Nexo.Images = IMAGES
+Nexo.Geometry = GEO
+
+return Nexo
